@@ -1,0 +1,2638 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tresmiles del Pirineo</title>
+<meta name="description" content="Mapa navegable en relieve de los 212 tresmiles del Pirineo aragonés y catalán occidental, con fichas, rutas de acceso y modelos 3D.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:ital,wght@0,400;0,500;0,600;1,500&family=Cormorant+Garamond:ital,wght@1,500;1,600&display=swap">
+<style>/* Layout: full-bleed relief map; floating ink-on-snow panels (left: index, right: layers, bottom: legend/scale) */
+:root {
+  --snow: #f6f7f4;
+  --panel: rgba(248, 249, 246, 0.94);
+  --panel-solid: #f8f9f6;
+  --ink: #17222a;
+  --ink-2: #33424b;
+  --muted: #61707a;
+  --line: rgba(23, 34, 42, 0.12);
+  --line-2: rgba(23, 34, 42, 0.2);
+  --summit: #b3261e;
+  --summit-soft: rgba(179, 38, 30, 0.1);
+  --ice: #22749c;
+  --ice-soft: rgba(34, 116, 156, 0.12);
+  --shadow: 0 1px 2px rgba(10, 20, 26, 0.12), 0 8px 28px rgba(10, 20, 26, 0.16);
+  --f-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --f-body: "Barlow", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-serif: "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
+  --r: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --snow: #0f1418; --panel: rgba(17, 24, 29, 0.93); --panel-solid: #121a1f; --ink: #e8edef; --ink-2: #c4cfd4;
+    --muted: #93a2aa; --line: rgba(232, 237, 239, 0.12); --line-2: rgba(232, 237, 239, 0.22);
+    --summit: #ff6b5e; --summit-soft: rgba(255, 107, 94, 0.14); --ice: #73c3ea; --ice-soft: rgba(115, 195, 234, 0.14);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.45); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --snow: #0f1418; --panel: rgba(17, 24, 29, 0.93); --panel-solid: #121a1f; --ink: #e8edef; --ink-2: #c4cfd4;
+  --muted: #93a2aa; --line: rgba(232, 237, 239, 0.12); --line-2: rgba(232, 237, 239, 0.22);
+  --summit: #ff6b5e; --summit-soft: rgba(255, 107, 94, 0.14); --ice: #73c3ea; --ice-soft: rgba(115, 195, 234, 0.14);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.45); color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--snow); color: var(--ink); font: 14px/1.45 var(--f-body); overflow: hidden; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--ice); outline-offset: 2px; }
+
+#app { position: fixed; inset: 0; }
+#map { position: absolute; inset: 0; overflow: hidden; touch-action: none; cursor: grab; background: #dfe3dc; }
+#map.dragging { cursor: grabbing; }
+#map.hovering { cursor: pointer; }
+#gl, #ov { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#ov { pointer-events: none; }
+
+/* ---------- panels ---------- */
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); backdrop-filter: blur(10px) saturate(1.1); -webkit-backdrop-filter: blur(10px) saturate(1.1); }
+#side { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); left: 12px; bottom: 12px; width: 332px; display: flex; flex-direction: column; z-index: 5; overflow: hidden; transition: transform .28s cubic-bezier(.2,.8,.2,1); }
+#side.collapsed { transform: translateX(calc(-100% - 16px)); }
+.brand { padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+.brand .eyebrow { font: 600 11px/1 var(--f-body); letter-spacing: .14em; text-transform: uppercase; color: var(--summit); display: flex; align-items: center; gap: 7px; }
+.brand .eyebrow svg { width: 13px; height: 11px; }
+.brand h1 { margin: 6px 0 2px; font: 700 30px/1 var(--f-display); letter-spacing: .005em; text-wrap: balance; }
+.brand p { margin: 0; color: var(--muted); font-size: 13px; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; }
+.stat { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px 5px; }
+.stat b { display: block; font: 600 20px/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.stat span { font-size: 11px; color: var(--muted); }
+
+.search { padding: 10px 12px 8px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--line); }
+.search input[type=search] { width: 100%; padding: 9px 11px 9px 34px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel-solid) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2361707a' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 10px 50%; color: var(--ink); font: 14px var(--f-body); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line-2); background: transparent; border-radius: 999px; padding: 3px 10px; font-size: 12.5px; cursor: pointer; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--panel-solid); border-color: var(--ink); }
+.chip .tri { width: 9px; height: 8px; }
+.selrow { display: flex; gap: 6px; }
+.selrow select { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel-solid); color: var(--ink); font: 13px var(--f-body); }
+
+.listhead { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 14px 4px; font-size: 12px; color: var(--muted); }
+.listhead button { border: 0; background: none; color: var(--ice); cursor: pointer; font-size: 12px; padding: 0; }
+#list { flex: 1; overflow-y: auto; padding: 0 6px 10px; scrollbar-width: thin; }
+.pk { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; width: 100%; text-align: left; border: 0; background: none; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+.pk:hover, .pk.on { background: var(--ice-soft); }
+.pk .rk { font: 600 12px var(--f-display); color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.pk .nm { min-width: 0; }
+.pk .nm b { display: block; font: 600 15.5px/1.15 var(--f-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk .nm span { display: block; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk .al { font: 600 15px var(--f-display); font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 6px; }
+.pk .al svg { width: 10px; height: 9px; }
+.zonehdr { font: 600 11px var(--f-body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 12px 8px 4px; }
+.empty { padding: 20px 14px; color: var(--muted); font-size: 13px; }
+
+#sideToggle { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); left: 356px; z-index: 6; width: 34px; height: 34px; display: grid; place-items: center; cursor: pointer; transition: left .28s cubic-bezier(.2,.8,.2,1); border-radius: 9px; }
+#side.collapsed ~ #sideToggle { left: 12px; }
+#sideToggle svg { width: 18px; height: 18px; }
+
+/* layers */
+#layers { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px; width: 236px; z-index: 5; padding: 10px 12px 12px; }
+#layers h2, #legend h2 { margin: 0 0 8px; font: 600 11px var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
+#layers h2 button { border: 0; background: none; cursor: pointer; color: var(--muted); padding: 0; display: grid; }
+#layers.min .lbody { display: none; }
+#layers.min h2 { margin: 0; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line-2); border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
+.seg button { border: 0; background: none; padding: 5px 4px; font-size: 12.5px; cursor: pointer; color: var(--ink-2); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel-solid); }
+.tog { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: 13px; cursor: pointer; }
+.tog input { appearance: none; width: 30px; height: 18px; border-radius: 9px; background: var(--line-2); position: relative; cursor: pointer; transition: background .15s; flex: none; margin: 0; }
+.tog input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: transform .15s; }
+.tog input:checked { background: var(--ice); }
+.tog input:checked::after { transform: translateX(12px); }
+.sun { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12.5px; }
+.sun label { display: flex; justify-content: space-between; color: var(--muted); }
+.sun input[type=range] { width: 100%; accent-color: var(--ice); }
+
+/* legend */
+#legend { position: absolute; left: 356px; bottom: 12px; padding: 10px 12px; z-index: 4; width: 300px; transition: left .28s cubic-bezier(.2,.8,.2,1); }
+#side.collapsed ~ #legend { position: absolute; left: 12px; }
+.ramp { height: 10px; border-radius: 3px; border: 1px solid var(--line); }
+.rampl { display: flex; justify-content: space-between; font: 500 11px var(--f-display); color: var(--muted); margin-top: 3px; font-variant-numeric: tabular-nums; }
+.sym { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 12px; color: var(--ink-2); }
+.sym span { display: inline-flex; align-items: center; gap: 6px; }
+.sym svg { width: 16px; height: 12px; }
+#legend.min .lbody { display: none; }
+#legend.min h2 { margin: 0; }
+#legend h2 button { border: 0; background: none; cursor: pointer; color: var(--muted); padding: 0; display: grid; }
+
+/* bottom right tools */
+#tools { position: absolute; right: 12px; bottom: 12px; z-index: 4; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.zoom { display: flex; flex-direction: column; overflow: hidden; }
+.zoom button { width: 36px; height: 34px; border: 0; background: none; cursor: pointer; font: 500 18px var(--f-body); display: grid; place-items: center; }
+.zoom button + button { border-top: 1px solid var(--line); }
+#readout { padding: 6px 10px; font: 500 12.5px var(--f-display); font-variant-numeric: tabular-nums; letter-spacing: .02em; display: flex; gap: 10px; align-items: center; white-space: nowrap; }
+#readout b { font-weight: 600; }
+#roV { font: italic 600 14px var(--f-serif); color: var(--ice); }
+#roV:empty { display: none; }
+#scale { padding: 6px 10px 5px; font: 500 11.5px var(--f-display); }
+#scale .bar { height: 5px; border: 1.5px solid var(--ink); border-top: 0; margin-top: 2px; }
+.credit { position: absolute; right: 64px; bottom: 12px; z-index: 3; font-size: 10.5px; color: rgba(23,34,42,.62); text-shadow: 0 0 3px rgba(255,255,255,.9); pointer-events: none; text-align: right; max-width: 46%; }
+
+/* tooltip */
+#tip { position: absolute; z-index: 7; pointer-events: none; padding: 5px 9px 4px; border-radius: 7px; background: var(--ink); color: var(--panel-solid); font: 600 13.5px/1.2 var(--f-display); white-space: nowrap; transform: translate(-50%, calc(-100% - 14px)); box-shadow: var(--shadow); }
+#tip small { font: 500 12px var(--f-display); opacity: .75; margin-left: 5px; }
+
+/* ---------- card ---------- */
+#card { position: absolute; z-index: 8; width: 364px; max-height: calc(100% - 24px); display: flex; flex-direction: column; overflow: hidden; background: var(--panel-solid); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 2px 6px rgba(10,20,26,.16), 0 22px 54px rgba(10,20,26,.32); }
+#card[hidden] { display: none !important; }
+.card-scroll { overflow-y: auto; scrollbar-width: thin; }
+.ph { position: relative; aspect-ratio: 16 / 10; background: #c9d1d3 center/cover no-repeat; cursor: pointer; overflow: hidden; flex: none; max-width: 100%; }
+.ph img, .ph canvas { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .6s cubic-bezier(.2,.8,.2,1); }
+.ph:hover img, .ph:hover canvas { transform: scale(1.035); }
+.ph .cr { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 10px 6px; font-size: 10.5px; line-height: 1.3; color: rgba(255,255,255,.88); background: linear-gradient(transparent, rgba(0,0,0,.62)); }
+.ph .cr a { color: inherit; }
+.ph .go3d { position: absolute; top: 10px; left: 10px; display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px 6px 9px; border-radius: 999px; background: rgba(15,22,27,.78); color: #fff; font: 600 12.5px var(--f-body); letter-spacing: .02em; border: 1px solid rgba(255,255,255,.18); backdrop-filter: blur(6px); }
+.ph .go3d svg { width: 16px; height: 16px; }
+.ph .near { position: absolute; top: 10px; right: 46px; padding: 3px 8px; border-radius: 6px; background: rgba(255,255,255,.86); color: #17222a; font-size: 11px; font-weight: 500; }
+.xclose { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(15,22,27,.62); color: #fff; cursor: pointer; display: grid; place-items: center; z-index: 2; }
+.xclose svg { width: 15px; height: 15px; }
+.cbody { padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 10px; }
+.chead { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: end; }
+.chead h3 { margin: 0; font: 700 27px/1.02 var(--f-display); text-wrap: balance; }
+.chead .alt { font: 700 27px/1 var(--f-display); color: var(--summit); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.chead .alt small { font-size: 15px; margin-left: 2px; }
+.chead .aka { grid-column: 1 / -1; font: italic 500 15px/1.25 var(--f-serif); color: var(--muted); }
+.chead .a2 { grid-column: 1 / -1; font-size: 11.5px; color: var(--muted); margin-top: -2px; }
+.badges { display: flex; flex-wrap: wrap; gap: 5px; }
+.badge { font: 500 11.5px/1 var(--f-body); padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--ink-2); white-space: nowrap; }
+.badge.pr { background: var(--summit); border-color: var(--summit); color: #fff; }
+.badge.sc { border-color: var(--summit); color: var(--summit); }
+.badge.vl { background: var(--ice-soft); border-color: transparent; color: var(--ice); }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 12.5px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; min-width: 0; font-variant-numeric: tabular-nums; }
+.facts dd button { border: 0; background: none; padding: 0 0 0 6px; color: var(--ice); cursor: pointer; font-size: 12px; }
+.sect { font: 600 11px var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 4px 0 -4px; display: flex; align-items: center; gap: 8px; }
+.sect::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.route { border-left: 2px solid var(--summit); padding: 1px 0 2px 10px; display: flex; flex-direction: column; gap: 4px; }
+.route h4 { margin: 0; font: 600 15px/1.2 var(--f-display); letter-spacing: .01em; }
+.route .path { font-size: 12.5px; color: var(--ink-2); }
+.route .path b { font-weight: 600; }
+.route .meta { display: flex; flex-wrap: wrap; gap: 5px; }
+.route .meta span { font: 600 11.5px/1 var(--f-display); letter-spacing: .03em; padding: 4px 7px 3px; border-radius: 5px; background: var(--ice-soft); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.route .meta span.g { background: var(--ink); color: var(--panel-solid); }
+.route .nt { font-size: 12px; color: var(--muted); }
+.pnote { font-size: 12.5px; color: var(--ink-2); font-style: italic; }
+.disc { font-size: 11px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 8px; }
+.cta { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 10px 12px; border-radius: 9px; border: 0; cursor: pointer; background: var(--ink); color: var(--panel-solid); font: 600 14px var(--f-body); letter-spacing: .01em; }
+.cta svg { width: 18px; height: 18px; }
+.cta:hover { filter: brightness(1.15); }
+
+/* ---------- loader ---------- */
+#loader { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: var(--snow); transition: opacity .5s; }
+#loader.done { opacity: 0; pointer-events: none; }
+#loader .box { width: min(340px, calc(100% - 48px)); text-align: center; }
+#loader svg.mt { width: 120px; height: 48px; color: var(--ink); }
+#loader h2 { margin: 10px 0 4px; font: 700 26px var(--f-display); }
+#loader p { margin: 0 0 14px; color: var(--muted); font-size: 13px; min-height: 19px; }
+#loader .bar { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
+#loader .bar i { display: block; height: 100%; width: 0; background: var(--summit); transition: width .3s; }
+#loader .err { color: var(--summit); font-size: 13px; margin-top: 12px; }
+
+/* ---------- 3D ---------- */
+#v3d { position: fixed; inset: 0; z-index: 40; background: radial-gradient(120% 90% at 50% 18%, #f3f1ea 0%, #d9dfe2 46%, #aebbc3 100%); display: flex; flex-direction: column; }
+#v3d[hidden] { display: none !important; }
+#v3d .stage { position: relative; flex: 1; min-height: 0; }
+#v3d canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+#v3d canvas:active { cursor: grabbing; }
+#v3d .labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.l3 { position: absolute; left: 0; top: 0; transform: translate(-50%, -100%); white-space: nowrap; text-align: center; font: 600 12.5px/1.15 var(--f-display); color: #17222a; text-shadow: 0 0 3px rgba(255,255,255,.95), 0 0 6px rgba(255,255,255,.8); will-change: transform; }
+.l3 small { display: block; font: 500 11px var(--f-display); color: #3d4c55; }
+.l3::after { content: ""; display: block; width: 1px; height: 18px; margin: 2px auto 0; background: linear-gradient(#17222a, rgba(23,34,42,0)); }
+.l3.main { font-size: 17px; padding: 5px 10px 4px; background: rgba(23,34,42,.88); color: #fff; border-radius: 7px; text-shadow: none; }
+.l3.main small { color: #ffb4ac; font-size: 13px; }
+.l3.main::after { height: 34px; width: 2px; background: linear-gradient(#17222a, rgba(23,34,42,0)); }
+.l3.sec { font-size: 11.5px; color: #33424b; }
+.l3.sec small { font-size: 10px; }
+.l3.sec::after { height: 12px; }
+.l3.hut { font: 500 11px var(--f-body); color: #4a3524; }
+.l3.hut::after { height: 10px; }
+.l3.card { font: 700 15px var(--f-display); color: rgba(23,34,42,.62); text-shadow: none; transform: translate(-50%, -50%); }
+.l3.card::after { display: none; }
+.hud { position: absolute; z-index: 2; }
+.hud.top { top: calc(14px + env(safe-area-inset-top, 0px)); left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; pointer-events: none; }
+.hud.top > * { pointer-events: auto; }
+.v3title { padding: 10px 14px 10px; }
+.v3title .eyebrow { font: 600 10.5px var(--f-body); letter-spacing: .14em; text-transform: uppercase; color: var(--summit); }
+.v3title h2 { margin: 2px 0 0; font: 700 30px/1 var(--f-display); }
+.v3title h2 span { color: var(--summit); margin-left: 8px; }
+.v3title p { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); }
+.v3close { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); box-shadow: var(--shadow); cursor: pointer; display: grid; place-items: center; }
+.v3close svg { width: 18px; height: 18px; }
+.hud.bottom { left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; gap: 6px; align-items: center; padding: 6px; flex-wrap: wrap; justify-content: center; width: max-content; max-width: calc(100% - 24px); }
+.hud.bottom button { border: 0; background: none; border-radius: 8px; padding: 7px 10px; cursor: pointer; font: 500 13px var(--f-body); display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
+.hud.bottom button svg { width: 16px; height: 16px; }
+.hud.bottom button[aria-pressed="true"] { background: var(--ink); color: var(--panel-solid); }
+.hud.bottom .sep { width: 1px; height: 22px; background: var(--line); }
+.hud.bottom label { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); padding: 0 6px; }
+.hud.bottom input[type=range] { width: 120px; accent-color: var(--summit); }
+.compass { position: absolute; z-index: 2; right: 18px; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; }
+.compass svg { width: 46px; height: 46px; transition: none; }
+.v3load { position: absolute; inset: 0; display: grid; place-items: center; font: 500 14px var(--f-body); color: var(--muted); pointer-events: none; }
+.v3hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(70px + env(safe-area-inset-bottom, 0px)); white-space: nowrap; font-size: 12px; color: rgba(23,34,42,.6); }
+
+@media (max-width: 760px) {
+  #side { position: absolute; top: auto; left: 0; right: 0; bottom: 0; width: auto; height: 46%; border-radius: 16px 16px 0 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  #side.collapsed { transform: translateY(calc(100% - 64px)); }
+  #sideToggle { left: auto; right: 12px; top: auto; bottom: calc(46% + 10px); }
+  #side.collapsed ~ #sideToggle { left: auto; right: 12px; bottom: 74px; }
+  .brand { padding: 12px 14px 8px; }
+  .brand h1 { font-size: 24px; }
+  .stats { display: none; }
+  #legend { display: none; }
+  #layers { width: auto; left: auto; max-width: calc(100% - 24px); }
+  #tools { bottom: auto; top: calc(64px + env(safe-area-inset-top, 0px)); }
+  #readout, .credit { display: none; }
+  #card { left: 8px !important; right: 8px; top: auto !important; bottom: 8px; width: auto; max-height: 72%; }
+  .v3title h2 { font-size: 22px; }
+  .hud.bottom label span { display: none; }
+  .compass { bottom: calc(118px + env(safe-area-inset-bottom, 0px)); }
+  .v3hint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map" aria-label="Mapa de relieve de los tresmiles del Pirineo" role="application">
+    <canvas id="gl"></canvas>
+    <canvas id="ov"></canvas>
+  </div>
+
+  <aside id="side" class="panel" aria-label="Índice de tresmiles">
+    <div class="brand">
+      <div class="eyebrow"><svg viewBox="0 0 13 11" aria-hidden="true"><path d="M6.5 0 13 11H0z" fill="currentColor"/></svg>Pirineo aragonés y catalán occidental</div>
+      <h1>Los Tresmiles del Pirineo</h1>
+      <p>Cimas de más de 3.000 m según la lista UIAA (Buyse)</p>
+      <div class="stats">
+        <div class="stat"><b id="stTotal">212</b><span>cimas</span></div>
+        <div class="stat"><b id="stPri">127</b><span>principales</span></div>
+        <div class="stat"><b id="stSec">85</b><span>secundarias</span></div>
+      </div>
+    </div>
+    <div class="search">
+      <input id="q" type="search" placeholder="Buscar cima, macizo o valle" autocomplete="off" aria-label="Buscar cima">
+      <div class="chips" role="group" aria-label="Filtros">
+        <button class="chip" id="fPri" aria-pressed="true"><svg class="tri" viewBox="0 0 10 9"><path d="M5 0 10 9H0z" fill="#b3261e"/></svg>Principales</button>
+        <button class="chip" id="fSec" aria-pressed="true"><svg class="tri" viewBox="0 0 10 9"><path d="M5 1.2 9 8.2H1z" fill="#fff" stroke="#b3261e" stroke-width="1.4"/></svg>Secundarias</button>
+        <button class="chip" id="fFr" aria-pressed="true">Incluir Francia</button>
+      </div>
+      <div class="selrow">
+        <select id="fZone" aria-label="Macizo"><option value="">Todos los macizos</option></select>
+        <select id="fSort" aria-label="Orden">
+          <option value="alt">Por altitud</option>
+          <option value="zone">Por macizo</option>
+          <option value="name">Alfabético</option>
+        </select>
+      </div>
+    </div>
+    <div class="listhead"><span id="count">212 cimas</span><button id="fit">Ver todas en el mapa</button></div>
+    <div id="list" role="list"></div>
+  </aside>
+  <button id="sideToggle" class="panel" aria-label="Mostrar u ocultar el índice" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+
+  <section id="layers" class="panel" aria-label="Capas">
+    <h2>Capas del mapa <button id="layersMin" aria-label="Plegar capas"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m6 15 6-6 6 6"/></svg></button></h2>
+    <div class="lbody">
+      <div class="seg" role="group" aria-label="Color del relieve">
+        <button id="mHyp" aria-pressed="true">Hipsométrico</button>
+        <button id="mNat" aria-pressed="false">Natural</button>
+      </div>
+      <label class="tog">Curvas de nivel <input type="checkbox" id="lCont" checked></label>
+      <label class="tog">Valles <input type="checkbox" id="lVal" checked></label>
+      <label class="tog">Ríos, lagos y glaciares <input type="checkbox" id="lWat" checked></label>
+      <label class="tog">Pueblos y refugios <input type="checkbox" id="lPla" checked></label>
+      <label class="tog">Carreteras y fronteras <input type="checkbox" id="lRoad" checked></label>
+      <label class="tog">Nombres de los tresmiles <input type="checkbox" id="lLab" checked></label>
+      <div class="sun">
+        <label for="sunAz"><span>Iluminación</span><span id="sunTxt">Noroeste</span></label>
+        <input type="range" id="sunAz" min="0" max="359" value="315">
+      </div>
+    </div>
+  </section>
+
+  <section id="legend" class="panel" aria-label="Leyenda">
+    <h2>Leyenda <button id="legMin" aria-label="Plegar leyenda"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button></h2>
+    <div class="lbody">
+      <div class="ramp" id="ramp"></div>
+      <div class="rampl"><span>500</span><span>1.000</span><span>1.500</span><span>2.000</span><span>2.500</span><span>3.000</span><span>3.400 m</span></div>
+      <div class="sym">
+        <span><svg viewBox="0 0 16 12"><path d="M8 1.5 14.5 11h-13z" fill="#b3261e" stroke="#fff" stroke-width="1.3"/></svg>Principal</span>
+        <span><svg viewBox="0 0 16 12"><path d="M8 2.6 13 10.4H3z" fill="#fff" stroke="#b3261e" stroke-width="1.6"/></svg>Secundaria</span>
+        <span><svg viewBox="0 0 16 12"><path d="M3 11V6l5-4 5 4v5z" fill="#7a4b2a" stroke="#fff"/></svg>Refugio</span>
+        <span><svg viewBox="0 0 16 12"><path d="M1 6h14" stroke="#7d4f2c" stroke-width="1.2"/></svg>Curva <b id="ci">100 m</b></span>
+        <span><svg viewBox="0 0 16 12"><path d="M1 6h14" stroke="#6b3f7a" stroke-width="1.6" stroke-dasharray="4 2 1 2"/></svg>Frontera</span>
+      </div>
+    </div>
+  </section>
+
+  <div id="tools">
+    <div id="readout" class="panel" aria-live="off"><span id="roV"></span><span id="roLL">—</span><b id="roZ"></b></div>
+    <div id="scale" class="panel"><span id="scaleTxt">1 km</span><div class="bar" id="scaleBar" style="width:60px"></div></div>
+    <div class="zoom panel">
+      <button id="zin" aria-label="Acercar">+</button>
+      <button id="zout" aria-label="Alejar">−</button>
+      <button id="zhome" aria-label="Vista general"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    </div>
+  </div>
+  <div class="credit">Relieve: IGN España (MDT05), IGN France (RGE ALTI), Copernicus DEM · Cobertura: ESA WorldCover · Datos: © OpenStreetMap · Fotos: Wikimedia Commons</div>
+  <div id="tip" hidden></div>
+  <article id="card" hidden aria-live="polite"></article>
+</div>
+
+<section id="v3d" hidden aria-label="Vista 3D">
+  <div class="stage">
+    <canvas id="c3d"></canvas>
+    <div class="labels" id="l3d"></div>
+    <div class="v3load" id="v3load">Cargando el modelo 3D…</div>
+    <div class="hud top">
+      <div class="v3title panel">
+        <div class="eyebrow" id="v3eye">Modelo 3D</div>
+        <h2 id="v3name">—</h2>
+        <p id="v3sub">—</p>
+      </div>
+      <button class="v3close" id="v3close" aria-label="Cerrar la vista 3D"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="compass panel" aria-hidden="true"><svg id="compass" viewBox="-24 -24 48 48"><circle r="21" fill="none" stroke="currentColor" stroke-opacity=".25"/><path d="M0-19 5 0H-5z" fill="#b3261e"/><path d="M0 19 5 0H-5z" fill="currentColor" fill-opacity=".45"/><text y="-8" font-size="0" fill="#fff">N</text></svg></div>
+    <div class="v3hint">Arrastra para girar · rueda o pellizco para acercar · clic derecho para desplazar</div>
+    <div class="hud bottom panel" role="toolbar" aria-label="Controles 3D">
+      <button id="v3rot" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Girar</button>
+      <button id="v3cont" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 17c4-6 7 2 11-4s5-2 7-4"/><path d="M3 21c4-6 7 2 11-4s5-2 7-4" opacity=".5"/></svg>Curvas</button>
+      <button id="v3snow" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M4.9 6.5l14.2 11M19.1 6.5 4.9 17.5"/></svg>Invierno</button>
+      <button id="v3exag" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/></svg>Relieve ×1</button>
+      <span class="sep"></span>
+      <label for="v3sun"><span>Sol</span><input type="range" id="v3sun" min="5" max="21" step="0.25" value="16.5"><b id="v3sunT">16:30</b></label>
+      <span class="sep"></span>
+      <button id="v3top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>Cenital</button>
+      <button id="v3reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Vista inicial</button>
+    </div>
+  </div>
+</section>
+
+<div id="loader">
+  <div class="box">
+    <svg class="mt" viewBox="0 0 120 48" aria-hidden="true"><path d="M2 46 30 14l12 12 18-24 20 26 10-10 28 28" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="m54 9 6-7 6 8" fill="none" stroke="#b3261e" stroke-width="2.5"/></svg>
+    <h2>Los Tresmiles del Pirineo</h2>
+    <p id="ldMsg">Preparando el relieve…</p>
+    <div class="bar"><i id="ldBar"></i></div>
+    <div class="err" id="ldErr" hidden></div>
+  </div>
+</div>
+
+<script src="datos-base.js"></script>
+<script>// ---------------------------------------------------------------------------
+//  Data decoding: base64 -> bytes, inflate, static rANS (DEM + classes)
+//  Mirrors build/rans.py — keep in sync.
+// ---------------------------------------------------------------------------
+const RANS_BITS = 14, RANS_M = 1 << RANS_BITS, RANS_MASK = RANS_M - 1, RANS_L = 1 << 23;
+
+function b64ToBytes(s) {
+  const bin = atob(s);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+async function inflateBytes(bytes) {
+  const ds = new DecompressionStream('deflate');
+  const stream = new Blob([bytes]).stream().pipeThrough(ds);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+// varint tables: for each ctx: nused, then (symDelta, freq-1)
+function parseTables(buf, nctx, nsym, withLut) {
+  const freq = new Int32Array(nctx * nsym), cum = new Int32Array(nctx * nsym);
+  const lut = withLut ? new Uint8Array(nctx * RANS_M) : null;
+  let p = 0;
+  const vint = () => { let v = 0, sh = 0, b; do { b = buf[p++]; v |= (b & 0x7f) << sh; sh += 7; } while (b & 0x80); return v; };
+  for (let c = 0; c < nctx; c++) {
+    const n = vint(); let s = 0, acc = 0;
+    for (let k = 0; k < n; k++) {
+      s += vint(); const f = vint() + 1;
+      freq[c * nsym + s] = f; cum[c * nsym + s] = acc;
+      if (lut) lut.fill(s, c * RANS_M + acc, c * RANS_M + acc + f);
+      acc += f;
+    }
+  }
+  return { freq, cum, lut, nsym };
+}
+
+// DEM: arrays decoded in sequence from one rANS stream.
+// dims: array of [H, W]; returns array of Int32Array (quantised values)
+function decodeDEM(hdr, T, esc, buf, dims) {
+  const w = hdr.w, act = hdr.act, eth = hdr.eth, nE = eth.length + 1;
+  const freq = T.freq, cum = T.cum, lut = T.lut;
+  let x = buf[0] | (buf[1] << 8) | (buf[2] << 16) | (buf[3] << 24), p = 4, ep = 0;
+  const out = [];
+  const nA = act.length;
+  for (const [H, W] of dims) {
+    const q = new Int32Array(H * W), ea = new Int32Array(H * W);
+    for (let r = 0; r < H; r++) {
+      const row = r * W;
+      for (let c = 0; c < W; c++) {
+        const i = row + c;
+        const A = c > 0 ? q[i - 1] : 0, B = r > 0 ? q[i - W] : 0;
+        const C = (r > 0 && c > 0) ? q[i - W - 1] : 0, D = (r > 0 && c < W - 1) ? q[i - W + 1] : 0;
+        let av = Math.abs(A - C) + Math.abs(B - C) + Math.abs(D - B);
+        let ab = 0; while (ab < nA && av >= act[ab]) ab++;
+        const ev = (c > 0 ? ea[i - 1] : 0) + (r > 0 ? ea[i - W] : 0);
+        let eb = 0; while (eb < nE - 1 && ev >= eth[eb]) eb++;
+        const ctx = ab * nE + eb;
+        // rANS decode
+        const slot = x & RANS_MASK;
+        const s = lut[ctx * RANS_M + slot];
+        const k = ctx * 256 + s;
+        x = freq[k] * (x >>> RANS_BITS) + slot - cum[k];
+        while (x < RANS_L) x = (x << 8) | buf[p++];
+        let z = s;
+        if (s === 255) { z = esc[ep] | (esc[ep + 1] << 8); ep += 2; }
+        const e = (z & 1) ? -((z + 1) >> 1) : (z >> 1);
+        ea[i] = e < 0 ? -e : e;
+        // prediction
+        let pred;
+        if (r === 0) pred = c === 0 ? 0 : A;
+        else if (c === 0) pred = B;
+        else if (r < 2 || c < 2 || c > W - 3) pred = A + B - C;
+        else {
+          const s0 = w[0] * A + w[1] * B + w[2] * C + w[3] * D + w[4] * q[i - 2] + w[5] * q[i - 2 * W]
+            + w[6] * q[i - 2 * W - 2] + w[7] * q[i - 2 * W + 1] + w[8] * q[i - W - 2] + w[9] * q[i - 2 * W - 1]
+            + w[10] * q[i - 2 * W + 2] + w[11] * q[i - W + 2];
+          pred = Math.floor((s0 + 2048) / 4096);
+        }
+        q[i] = pred + e;
+      }
+    }
+    out.push(q);
+  }
+  return out;
+}
+
+// categorical raster, ctx = (left, up, upleft)
+function decodeClasses(hdr, T, buf) {
+  const n = hdr.n, H = hdr.H, W = hdr.W, freq = T.freq, cum = T.cum, nsym = T.nsym;
+  const a = new Uint8Array(H * W);
+  let x = buf[0] | (buf[1] << 8) | (buf[2] << 16) | (buf[3] << 24), p = 4;
+  for (let r = 0; r < H; r++) {
+    for (let c = 0; c < W; c++) {
+      const i = r * W + c;
+      const A = c > 0 ? a[i - 1] : 0, B = r > 0 ? a[i - W] : 0, C = (r > 0 && c > 0) ? a[i - W - 1] : 0;
+      const base = ((A * n + B) * n + C) * nsym;
+      const slot = x & RANS_MASK;
+      let s = 0;
+      while (s < nsym - 1 && (freq[base + s] === 0 || slot >= cum[base + s] + freq[base + s])) s++;
+      x = freq[base + s] * (x >>> RANS_BITS) + slot - cum[base + s];
+      while (x < RANS_L) x = (x << 8) | buf[p++];
+      a[i] = s;
+    }
+  }
+  return a;
+}
+
+// Remove quantisation staircases: smooth with a 3x3 binomial kernel, then clamp each
+// value back into its quantisation interval [qQ - Q/2, qQ + Q/2] (projection onto the
+// set of surfaces consistent with the stored integers). Real relief moves by < Q/2.
+function dequant(q, W, H, Q, iters = 2) {
+  const n = W * H, lo = new Float32Array(n), hi = new Float32Array(n);
+  let a = new Float32Array(n), t = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const v = q[i] * Q; a[i] = v; lo[i] = v - Q * 0.5; hi[i] = v + Q * 0.5; }
+  for (let it = 0; it < iters; it++) {
+    for (let y = 0; y < H; y++) {            // horizontal [1 2 1]/4
+      const r = y * W;
+      for (let x = 0; x < W; x++) {
+        const l = a[r + (x > 0 ? x - 1 : 0)], c = a[r + x], rr = a[r + (x < W - 1 ? x + 1 : W - 1)];
+        t[r + x] = (l + 2 * c + rr) * 0.25;
+      }
+    }
+    for (let y = 0; y < H; y++) {            // vertical [1 2 1]/4 + clamp
+      const u = (y > 0 ? y - 1 : 0) * W, r = y * W, d = (y < H - 1 ? y + 1 : H - 1) * W;
+      for (let x = 0; x < W; x++) {
+        const v = (t[u + x] + 2 * t[r + x] + t[d + x]) * 0.25, i = r + x;
+        a[i] = v < lo[i] ? lo[i] : v > hi[i] ? hi[i] : v;
+      }
+    }
+  }
+  return a;
+}
+
+const DECODE_SRC = "// ---------------------------------------------------------------------------\n//  Data decoding: base64 -> bytes, inflate, static rANS (DEM + classes)\n//  Mirrors build/rans.py \u2014 keep in sync.\n// ---------------------------------------------------------------------------\nconst RANS_BITS = 14, RANS_M = 1 << RANS_BITS, RANS_MASK = RANS_M - 1, RANS_L = 1 << 23;\n\nfunction b64ToBytes(s) {\n  const bin = atob(s);\n  const out = new Uint8Array(bin.length);\n  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);\n  return out;\n}\n\nasync function inflateBytes(bytes) {\n  const ds = new DecompressionStream('deflate');\n  const stream = new Blob([bytes]).stream().pipeThrough(ds);\n  return new Uint8Array(await new Response(stream).arrayBuffer());\n}\n\n// varint tables: for each ctx: nused, then (symDelta, freq-1)\nfunction parseTables(buf, nctx, nsym, withLut) {\n  const freq = new Int32Array(nctx * nsym), cum = new Int32Array(nctx * nsym);\n  const lut = withLut ? new Uint8Array(nctx * RANS_M) : null;\n  let p = 0;\n  const vint = () => { let v = 0, sh = 0, b; do { b = buf[p++]; v |= (b & 0x7f) << sh; sh += 7; } while (b & 0x80); return v; };\n  for (let c = 0; c < nctx; c++) {\n    const n = vint(); let s = 0, acc = 0;\n    for (let k = 0; k < n; k++) {\n      s += vint(); const f = vint() + 1;\n      freq[c * nsym + s] = f; cum[c * nsym + s] = acc;\n      if (lut) lut.fill(s, c * RANS_M + acc, c * RANS_M + acc + f);\n      acc += f;\n    }\n  }\n  return { freq, cum, lut, nsym };\n}\n\n// DEM: arrays decoded in sequence from one rANS stream.\n// dims: array of [H, W]; returns array of Int32Array (quantised values)\nfunction decodeDEM(hdr, T, esc, buf, dims) {\n  const w = hdr.w, act = hdr.act, eth = hdr.eth, nE = eth.length + 1;\n  const freq = T.freq, cum = T.cum, lut = T.lut;\n  let x = buf[0] | (buf[1] << 8) | (buf[2] << 16) | (buf[3] << 24), p = 4, ep = 0;\n  const out = [];\n  const nA = act.length;\n  for (const [H, W] of dims) {\n    const q = new Int32Array(H * W), ea = new Int32Array(H * W);\n    for (let r = 0; r < H; r++) {\n      const row = r * W;\n      for (let c = 0; c < W; c++) {\n        const i = row + c;\n        const A = c > 0 ? q[i - 1] : 0, B = r > 0 ? q[i - W] : 0;\n        const C = (r > 0 && c > 0) ? q[i - W - 1] : 0, D = (r > 0 && c < W - 1) ? q[i - W + 1] : 0;\n        let av = Math.abs(A - C) + Math.abs(B - C) + Math.abs(D - B);\n        let ab = 0; while (ab < nA && av >= act[ab]) ab++;\n        const ev = (c > 0 ? ea[i - 1] : 0) + (r > 0 ? ea[i - W] : 0);\n        let eb = 0; while (eb < nE - 1 && ev >= eth[eb]) eb++;\n        const ctx = ab * nE + eb;\n        // rANS decode\n        const slot = x & RANS_MASK;\n        const s = lut[ctx * RANS_M + slot];\n        const k = ctx * 256 + s;\n        x = freq[k] * (x >>> RANS_BITS) + slot - cum[k];\n        while (x < RANS_L) x = (x << 8) | buf[p++];\n        let z = s;\n        if (s === 255) { z = esc[ep] | (esc[ep + 1] << 8); ep += 2; }\n        const e = (z & 1) ? -((z + 1) >> 1) : (z >> 1);\n        ea[i] = e < 0 ? -e : e;\n        // prediction\n        let pred;\n        if (r === 0) pred = c === 0 ? 0 : A;\n        else if (c === 0) pred = B;\n        else if (r < 2 || c < 2 || c > W - 3) pred = A + B - C;\n        else {\n          const s0 = w[0] * A + w[1] * B + w[2] * C + w[3] * D + w[4] * q[i - 2] + w[5] * q[i - 2 * W]\n            + w[6] * q[i - 2 * W - 2] + w[7] * q[i - 2 * W + 1] + w[8] * q[i - W - 2] + w[9] * q[i - 2 * W - 1]\n            + w[10] * q[i - 2 * W + 2] + w[11] * q[i - W + 2];\n          pred = Math.floor((s0 + 2048) / 4096);\n        }\n        q[i] = pred + e;\n      }\n    }\n    out.push(q);\n  }\n  return out;\n}\n\n// categorical raster, ctx = (left, up, upleft)\nfunction decodeClasses(hdr, T, buf) {\n  const n = hdr.n, H = hdr.H, W = hdr.W, freq = T.freq, cum = T.cum, nsym = T.nsym;\n  const a = new Uint8Array(H * W);\n  let x = buf[0] | (buf[1] << 8) | (buf[2] << 16) | (buf[3] << 24), p = 4;\n  for (let r = 0; r < H; r++) {\n    for (let c = 0; c < W; c++) {\n      const i = r * W + c;\n      const A = c > 0 ? a[i - 1] : 0, B = r > 0 ? a[i - W] : 0, C = (r > 0 && c > 0) ? a[i - W - 1] : 0;\n      const base = ((A * n + B) * n + C) * nsym;\n      const slot = x & RANS_MASK;\n      let s = 0;\n      while (s < nsym - 1 && (freq[base + s] === 0 || slot >= cum[base + s] + freq[base + s])) s++;\n      x = freq[base + s] * (x >>> RANS_BITS) + slot - cum[base + s];\n      while (x < RANS_L) x = (x << 8) | buf[p++];\n      a[i] = s;\n    }\n  }\n  return a;\n}\n\n// Remove quantisation staircases: smooth with a 3x3 binomial kernel, then clamp each\n// value back into its quantisation interval [qQ - Q/2, qQ + Q/2] (projection onto the\n// set of surfaces consistent with the stored integers). Real relief moves by < Q/2.\nfunction dequant(q, W, H, Q, iters = 2) {\n  const n = W * H, lo = new Float32Array(n), hi = new Float32Array(n);\n  let a = new Float32Array(n), t = new Float32Array(n);\n  for (let i = 0; i < n; i++) { const v = q[i] * Q; a[i] = v; lo[i] = v - Q * 0.5; hi[i] = v + Q * 0.5; }\n  for (let it = 0; it < iters; it++) {\n    for (let y = 0; y < H; y++) {            // horizontal [1 2 1]/4\n      const r = y * W;\n      for (let x = 0; x < W; x++) {\n        const l = a[r + (x > 0 ? x - 1 : 0)], c = a[r + x], rr = a[r + (x < W - 1 ? x + 1 : W - 1)];\n        t[r + x] = (l + 2 * c + rr) * 0.25;\n      }\n    }\n    for (let y = 0; y < H; y++) {            // vertical [1 2 1]/4 + clamp\n      const u = (y > 0 ? y - 1 : 0) * W, r = y * W, d = (y < H - 1 ? y + 1 : H - 1) * W;\n      for (let x = 0; x < W; x++) {\n        const v = (t[u + x] + 2 * t[r + x] + t[d + x]) * 0.25, i = r + x;\n        a[i] = v < lo[i] ? lo[i] : v > hi[i] ? hi[i] : v;\n      }\n    }\n  }\n  return a;\n}\n";
+
+// ---------------------------------------------------------------------------
+//  Small helpers
+// ---------------------------------------------------------------------------
+const $ = (s, r = document) => r.querySelector(s);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = t => t * t * (3 - 2 * t);
+const easeInOut = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+// Spanish mountaineering style: 3.404 m (thousands with dot, also for 4-digit numbers)
+function fmtM(n) {
+  const s = String(Math.round(Math.abs(n)));
+  const g = s.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (n < 0 ? '−' : '') + g;
+}
+function fmtKm(m) {
+  if (m < 1000) return Math.round(m / 10) * 10 + ' m';
+  const k = m / 1000;
+  return (k < 10 ? k.toFixed(1).replace('.', ',') : Math.round(k)) + ' km';
+}
+function fmtLat(v) { return Math.abs(v).toFixed(5).replace('.', ',') + '° ' + (v >= 0 ? 'N' : 'S'); }
+function fmtLon(v) { return Math.abs(v).toFixed(5).replace('.', ',') + '° ' + (v >= 0 ? 'E' : 'O'); }
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function norm(s) { return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+
+// delta-decoded integer rings -> Float32Array [x0,y0,x1,y1...]
+function undelta(a) {
+  const out = new Float32Array(a.length);
+  let x = 0, y = 0;
+  for (let i = 0; i < a.length; i += 2) { x += a[i]; y += a[i + 1]; out[i] = x; out[i + 1] = y; }
+  return out;
+}
+function bboxOf(f) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (let i = 0; i < f.length; i += 2) { const x = f[i], y = f[i + 1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  return [x0, y0, x1, y1];
+}
+
+const VALLEY_COLORS = ['#2f86b4', '#c25e33', '#5f9631', '#9456ad', '#c99a1c', '#228f80', '#c2456a', '#5266c2'];
+const ZONE_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+
+// ---------------------------------------------------------------------------
+//  WebGL2 relief renderer: hillshade + land cover / hypsometric tint + contours
+//  + valley tint + water/ice mask (stencil-filled polygons), computed per pixel.
+// ---------------------------------------------------------------------------
+const VS_FULL = `#version 300 es
+in vec2 aPos; void main(){ gl_Position = vec4(aPos, 0.0, 1.0); }`;
+
+const FS_TERRAIN = `#version 300 es
+precision highp float;
+precision highp usampler2D;
+precision highp sampler2DArray;
+uniform sampler2D uBase, uAO, uLC, uVal, uMask, uCtx;
+uniform sampler2DArray uAtlas;
+uniform vec4 uCtxBox; uniform vec2 uCtxSize;
+uniform usampler2D uIndex;
+uniform vec2 uViewport, uCenter, uBaseSize, uBaseCell, uHiCell, uAtlasSize, uIndexSize, uExtent;
+uniform float uRes, uAtlasCols, uAtlasPer, uHiMix, uMode, uContours, uValleys, uWater, uContInt, uExag, uDpr, uHasHi;
+uniform vec3 uLight;
+out vec4 outColor;
+
+vec3 hypso(float h){
+  const int N = 10;
+  float hs[N] = float[N](300.,700.,1100.,1500.,1900.,2300.,2650.,2950.,3150.,3400.);
+  vec3 cs[N] = vec3[N](vec3(.56,.69,.49), vec3(.66,.75,.53), vec3(.79,.81,.60), vec3(.87,.84,.64), vec3(.89,.80,.62),
+                       vec3(.84,.72,.58), vec3(.78,.69,.62), vec3(.83,.80,.77), vec3(.92,.91,.90), vec3(.99,.99,1.0));
+  if (h <= hs[0]) return cs[0];
+  for (int i = 1; i < N; i++) if (h < hs[i]) return mix(cs[i-1], cs[i], smoothstep(0., 1., (h - hs[i-1]) / (hs[i] - hs[i-1])));
+  return cs[N-1];
+}
+// returns (h, dh/dx, dh/dy) in metres from the base grid
+vec3 sampleBase(vec2 P, float e){
+  vec2 sz = uBaseCell * uBaseSize;
+  vec2 dx = vec2(e * uBaseCell.x, 0.), dy = vec2(0., e * uBaseCell.y);
+  float h  = texture(uBase, P / sz).r;
+  float hx1 = texture(uBase, (P + dx) / sz).r, hx0 = texture(uBase, (P - dx) / sz).r;
+  float hy1 = texture(uBase, (P + dy) / sz).r, hy0 = texture(uBase, (P - dy) / sz).r;
+  return vec3(h, (hx1 - hx0) / (2. * dx.x), (hy1 - hy0) / (2. * dy.y));
+}
+// hi-res atlas lookup (tiles 128 cells + 2 px border). ok = 0 if not covered
+vec3 sampleHi(vec2 P, float e, float lod, out float ok){
+  ok = 0.;
+  if (uHasHi < .5) return vec3(0.);
+  vec2 g = P / uHiCell;
+  vec2 tf = floor(g / 128.);
+  if (tf.x < 0. || tf.y < 0. || tf.x >= uIndexSize.x || tf.y >= uIndexSize.y) return vec3(0.);
+  uint s = texelFetch(uIndex, ivec2(tf), 0).r;
+  if (s == 0u) return vec3(0.);
+  uint s1 = s - 1u, per = uint(uAtlasPer + .5), cols = uint(uAtlasCols + .5);
+  uint lay = s1 / per, loc = s1 - lay * per;
+  vec2 org = vec2(float(loc % cols), float(loc / cols)) * 132.;
+  vec2 t = org + (g - tf * 128.) + 2.;
+  float L = float(lay);
+  // keep every bilinear footprint inside this tile (2 px border at mip 0, 1 px at mip 1)
+  float ee = clamp(e, 1., 2.5);
+  float x0 = max(t.x - ee, org.x + 1.), x1 = min(t.x + ee, org.x + 131.);
+  float y0 = max(t.y - ee, org.y + 1.), y1 = min(t.y + ee, org.y + 131.);
+  vec2 iv = 1. / uAtlasSize;
+  float h  = textureLod(uAtlas, vec3(t * iv, L), lod).r;
+  float hx1 = textureLod(uAtlas, vec3(vec2(x1, t.y) * iv, L), lod).r, hx0 = textureLod(uAtlas, vec3(vec2(x0, t.y) * iv, L), lod).r;
+  float hy1 = textureLod(uAtlas, vec3(vec2(t.x, y1) * iv, L), lod).r, hy0 = textureLod(uAtlas, vec3(vec2(t.x, y0) * iv, L), lod).r;
+  ok = 1.;
+  return vec3(h + 2048., (hx1 - hx0) / ((x1 - x0) * uHiCell.x), (hy1 - hy0) / ((y1 - y0) * uHiCell.y));
+}
+vec3 sampleCtx(vec2 P, float e){
+  float cell = uCtxBox.z / uCtxSize.x;
+  vec2 dx = vec2(e * cell, 0.), dy = vec2(0., e * cell);
+  float h = texture(uCtx, (P - uCtxBox.xy) / uCtxBox.zw).r;
+  float hx1 = texture(uCtx, (P + dx - uCtxBox.xy) / uCtxBox.zw).r, hx0 = texture(uCtx, (P - dx - uCtxBox.xy) / uCtxBox.zw).r;
+  float hy1 = texture(uCtx, (P + dy - uCtxBox.xy) / uCtxBox.zw).r, hy0 = texture(uCtx, (P - dy - uCtxBox.xy) / uCtxBox.zw).r;
+  return vec3(h, (hx1 - hx0) / (2. * dx.x), (hy1 - hy0) / (2. * dy.y));
+}
+vec3 paleRelief(vec3 H, float ex){
+  vec3 n = normalize(vec3(-H.y * ex, -H.z * ex, 1.));
+  float d = dot(n, uLight);
+  vec3 c = hypso(H.x);
+  c = mix(c, vec3(dot(c, vec3(.3,.59,.11))), .45);
+  c = mix(c, vec3(.93,.93,.9), .35);
+  return c * mix(vec3(.62,.66,.74), vec3(1.05,1.03,.99), smoothstep(-.3, .95, d));
+}
+float lineAA(float v, float fw, float w){ // v in units of the interval, w px width
+  float d = abs(fract(v + .5) - .5) / max(fw, 1e-5);
+  return 1. - smoothstep(w * .5 - .55, w * .5 + .55, d);
+}
+void main(){
+  vec2 frag = vec2(gl_FragCoord.x, uViewport.y - gl_FragCoord.y);
+  vec2 P = uCenter + (frag - uViewport * .5) * uRes;
+  float edgeD = min(min(P.x, P.y), min(uExtent.x - P.x, uExtent.y - P.y));
+  if (edgeD < 0.){
+    vec2 cu = (P - uCtxBox.xy) / uCtxBox.zw;
+    vec3 paper = vec3(.86,.87,.84);
+    if (cu.x < 0. || cu.y < 0. || cu.x > 1. || cu.y > 1.) { outColor = vec4(paper, 1.); return; }
+    float cell = uCtxBox.z / uCtxSize.x;
+    vec3 hc = sampleCtx(P, max(1., uRes / cell));
+    vec3 c = paleRelief(hc, uExag * 1.6);
+    float bd = min(min(cu.x, cu.y), min(1. - cu.x, 1. - cu.y)) * uCtxBox.z;
+    c = mix(paper, c, smoothstep(0., 9000., bd));
+    outColor = vec4(c, 1.);
+    return;
+  }
+  float pxBase = uRes / uBaseCell.x;                  // base texels per pixel
+  vec3 hb = sampleBase(P, max(1., pxBase));
+  float ok; vec3 hh = vec3(0.);
+  float pxHi = uRes / uHiCell.x;
+  if (uHiMix > 0.) hh = sampleHi(P, pxHi, clamp(log2(max(pxHi, 1.)), 0., 1.), ok); else ok = 0.;
+  float wHi = ok * uHiMix;
+  vec3 H = mix(hb, hh, wHi);
+  float h = H.x;
+  float fw = fwidth(h);
+  vec2 uvB = P / (uBaseCell * uBaseSize);
+  vec3 n = normalize(vec3(-H.y * uExag, -H.z * uExag, 1.));
+  float slope = acos(clamp(1. / sqrt(1. + H.y*H.y + H.z*H.z), 0., 1.)); // radians, unexaggerated
+
+  // ---------------- albedo
+  vec4 lc = texture(uLC, uvB);
+  vec3 alb;
+  vec3 hy = hypso(h);
+  if (uMode < .5) {
+    alb = mix(lc.rgb, hy, .1);
+    // alpine meadows turn yellower with altitude
+    alb = mix(alb, alb * vec3(1.03, 1.0, .9), smoothstep(1900., 2700., h) * (1. - lc.a) * .7);
+  } else {
+    alb = hy;
+    alb = mix(alb, alb * vec3(.82, .9, .78), lc.a * .55);   // forests slightly darker
+  }
+  // cliffs read as rock
+  vec3 rock = mix(vec3(.66,.64,.61), vec3(.79,.78,.76), smoothstep(2000., 3200., h));
+  alb = mix(alb, rock, smoothstep(.62, 1.0, slope) * .75);
+
+  // ---------------- masks (water r, ice g)
+  vec4 mk = texelFetch(uMask, ivec2(gl_FragCoord.xy), 0);
+  float water = mk.r * uWater, ice = mk.g * uWater;
+  alb = mix(alb, vec3(.93,.96,.99), ice);
+
+  // ---------------- light
+  float diff = dot(n, uLight);
+  float ao = texture(uAO, uvB).r;
+  vec3 shadowT = vec3(.36,.40,.53), lightT = vec3(1.07,1.03,.96);
+  float lt = smoothstep(-.35, .95, diff);
+  vec3 col = alb * mix(shadowT, lightT, lt);
+  col *= mix(.82, 1.07, ao);
+  // high-altitude contrast, low-altitude haze (aerial perspective)
+  col = mix(col, mix(col, vec3(.86,.88,.85), .22), 1. - smoothstep(700., 2100., h));
+  // ---------------- valleys
+  vec4 vt = texture(uVal, uvB);
+  col = mix(col, vt.rgb, vt.a * uValleys);
+  // ---------------- water
+  if (water > .5) {
+    float dep = clamp(1. - ao, 0., 1.);
+    col = mix(vec3(.55,.76,.89), vec3(.40,.64,.82), dep);
+    col *= .96 + .06 * diff;
+  }
+  // lake / glacier outlines from mask edges
+  float e1 = 0.;
+  if (uWater > .5) {
+    ivec2 fc = ivec2(gl_FragCoord.xy);
+    vec4 a = texelFetch(uMask, fc + ivec2(1,0), 0), b = texelFetch(uMask, fc + ivec2(-1,0), 0);
+    vec4 c = texelFetch(uMask, fc + ivec2(0,1), 0), d = texelFetch(uMask, fc + ivec2(0,-1), 0);
+    float we = max(max(abs(a.r - mk.r), abs(b.r - mk.r)), max(abs(c.r - mk.r), abs(d.r - mk.r)));
+    float ie = max(max(abs(a.g - mk.g), abs(b.g - mk.g)), max(abs(c.g - mk.g), abs(d.g - mk.g)));
+    col = mix(col, vec3(.20,.47,.69), we * .85);
+    e1 = ie;
+  }
+  // ---------------- contours
+  if (uContours > .5 && water < .5) {
+    float I = uContInt;
+    float dens = fw / I;
+    float f1 = lineAA(h / I, dens, 1.0 * uDpr);
+    float f5 = lineAA(h / (I * 5.), fw / (I * 5.), 1.7 * uDpr);
+    float fade = 1. - smoothstep(.16, .42, dens);
+    float fade5 = 1. - smoothstep(.10, .30, fw / (I * 5.) );
+    vec3 cc = mix(vec3(.47,.29,.15), vec3(.18,.42,.66), ice);
+    col = mix(col, cc * .8 + col * .2, max(f1 * .34 * fade, f5 * .62 * fade5));
+  }
+  col = mix(col, vec3(.16,.45,.68), e1 * .9);
+  float fadeE = 1. - smoothstep(0., 2200., edgeD);
+  col = mix(col, paleRelief(H, uExag), fadeE * .65);
+  outColor = vec4(pow(col, vec3(.98)), 1.);
+}`;
+
+const VS_POLY = `#version 300 es
+in vec2 aPos; uniform vec2 uCenter, uViewport; uniform float uRes;
+void main(){ vec2 s = (aPos - uCenter) / uRes / (uViewport * .5); gl_Position = vec4(s.x, -s.y, 0., 1.); }`;
+const FS_COLOR = `#version 300 es
+precision mediump float; uniform vec4 uColor; out vec4 o; void main(){ o = uColor; }`;
+
+class ReliefGL {
+  constructor(canvas) {
+    const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: false, stencil: false, premultipliedAlpha: false, powerPreference: 'high-performance' });
+    if (!gl) throw new Error('WebGL2 no disponible en este navegador.');
+    this.gl = gl; this.canvas = canvas;
+    this.pTerr = this.program(VS_FULL, FS_TERRAIN);
+    this.pPoly = this.program(VS_POLY, FS_COLOR);
+    this.quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    this.tex = {};
+    this.hasHi = 0;
+    // placeholders so every sampler has a complete texture before the hi-res data arrives
+    this.texture('index', 1, 1, gl.R16UI, gl.RED_INTEGER, gl.UNSIGNED_SHORT, new Uint16Array(1), 'nearest');
+    this.atlasArray(1, 1, 1);
+    this.maskW = 0; this.maskH = 0;
+  }
+  program(vs, fs) {
+    const gl = this.gl;
+    const mk = (type, src) => {
+      const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    };
+    const p = gl.createProgram();
+    gl.attachShader(p, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fs));
+    gl.bindAttribLocation(p, 0, 'aPos');
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+    for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i); u[info.name.replace(/\[0\]$/, '')] = gl.getUniformLocation(p, info.name); }
+    return { p, u };
+  }
+  texture(name, w, h, ifmt, fmt, type, data, filter = 'linear', mip = false) {
+    const gl = this.gl;
+    if (this.tex[name]) gl.deleteTexture(this.tex[name]);
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, ifmt, w, h, 0, fmt, type, data);
+    const lin = filter === 'linear';
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, lin ? gl.LINEAR : gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, lin ? (mip ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR) : gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    if (mip === 'gen') gl.generateMipmap(gl.TEXTURE_2D);
+    this.tex[name] = t;
+    return t;
+  }
+  // R16F 2D-array atlas for the hi-res tiles (filled tile by tile)
+  atlasArray(w, h, layers) {
+    const gl = this.gl;
+    if (this.atlasArr) gl.deleteTexture(this.atlasArr);
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, t);
+    const lv = (w % 2 || h % 2) ? 1 : 2;   // mip 0 + one 2x2-averaged level
+    gl.texStorage3D(gl.TEXTURE_2D_ARRAY, lv, gl.R16F, w, h, layers);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, lv > 1 ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.atlasArr = t; this.atlasW = w; this.atlasH = h;
+    return t;
+  }
+  atlasTile(layer, x, y, w, h, data, half) {
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.atlasArr);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, x, y, layer, w, h, 1, gl.RED, gl.FLOAT, data);
+    if (half) gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 1, x >> 1, y >> 1, layer, w >> 1, h >> 1, 1, gl.RED, gl.FLOAT, half);
+  }
+  // R16F elevation texture with manual mip chain
+  elevTexture(name, data, w, h) {
+    const gl = this.gl;
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    let lvl = 0, cur = data, cw = w, ch = h;
+    while (true) {
+      gl.texImage2D(gl.TEXTURE_2D, lvl, gl.R16F, cw, ch, 0, gl.RED, gl.FLOAT, cur);
+      if (cw === 1 && ch === 1) break;
+      const nw = Math.max(1, cw >> 1), nh = Math.max(1, ch >> 1);
+      const nxt = new Float32Array(nw * nh);
+      for (let y = 0; y < nh; y++) {
+        const y0 = Math.min(2 * y, ch - 1), y1 = Math.min(2 * y + 1, ch - 1);
+        for (let x = 0; x < nw; x++) {
+          const x0 = Math.min(2 * x, cw - 1), x1 = Math.min(2 * x + 1, cw - 1);
+          nxt[y * nw + x] = 0.25 * (cur[y0 * cw + x0] + cur[y0 * cw + x1] + cur[y1 * cw + x0] + cur[y1 * cw + x1]);
+        }
+      }
+      cur = nxt; cw = nw; ch = nh; lvl++;
+    }
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.tex[name] = t;
+  }
+  // polygon fan buffers for stencil fill (rings: Float32Array world coords)
+  polyBuffer(rings) {
+    let n = 0; for (const r of rings) n += Math.max(0, r.length / 2 - 2) * 3;
+    const v = new Float32Array(n * 2); let k = 0;
+    for (const r of rings) {
+      const m = r.length / 2;
+      for (let i = 1; i < m - 1; i++) {
+        v[k++] = r[0]; v[k++] = r[1]; v[k++] = r[2 * i]; v[k++] = r[2 * i + 1]; v[k++] = r[2 * i + 2]; v[k++] = r[2 * i + 3];
+      }
+    }
+    const gl = this.gl, b = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, v, gl.STATIC_DRAW);
+    return { b, n };
+  }
+  ensureMask(w, h) {
+    const gl = this.gl;
+    if (this.maskW === w && this.maskH === h) return;
+    this.maskW = w; this.maskH = h;
+    if (this.fbo) { gl.deleteFramebuffer(this.fbo); gl.deleteRenderbuffer(this.rbo); gl.deleteTexture(this.tex.mask); }
+    this.texture('mask', w, h, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, null, 'nearest');
+    this.rbo = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, this.rbo);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, w, h);
+    this.fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tex.mask, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, this.rbo);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+  drawMask(view, layers) {
+    const gl = this.gl, P = this.pPoly;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+    gl.viewport(0, 0, this.maskW, this.maskH);
+    gl.clearColor(0, 0, 0, 0); gl.clearStencil(0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+    gl.useProgram(P.p);
+    gl.uniform2f(P.u.uCenter, view.cx, view.cy);
+    gl.uniform2f(P.u.uViewport, this.maskW, this.maskH);
+    gl.uniform1f(P.u.uRes, view.res / view.gdpr);
+    gl.enable(gl.STENCIL_TEST);
+    gl.enableVertexAttribArray(0);
+    for (const L of layers) {
+      if (!L.buf || !L.buf.n) continue;
+      // 1) parity into stencil
+      gl.colorMask(false, false, false, false);
+      gl.stencilFunc(gl.ALWAYS, 0, 0xff);
+      gl.stencilOp(gl.KEEP, gl.KEEP, gl.INVERT);
+      gl.bindBuffer(gl.ARRAY_BUFFER, L.buf.b);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, L.buf.n);
+      // 2) cover where stencil != 0, reset stencil
+      gl.colorMask(L.ch === 0, L.ch === 1, false, false);
+      gl.stencilFunc(gl.NOTEQUAL, 0, 0xff);
+      gl.stencilOp(gl.ZERO, gl.ZERO, gl.ZERO);
+      gl.uniform4f(P.u.uColor, 1, 1, 0, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, L.buf.n);
+    }
+    gl.colorMask(true, true, true, true);
+    gl.disable(gl.STENCIL_TEST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+  render(view, opt) {
+    const gl = this.gl, P = this.pTerr, u = P.u;
+    const W = this.canvas.width, H = this.canvas.height;
+    this.ensureMask(W, H);
+    if (opt.water) this.drawMask(view, opt.maskLayers); else {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+    gl.viewport(0, 0, W, H);
+    gl.useProgram(P.p);
+    const bind = (unit, name, uname) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, this.tex[name] || null); gl.uniform1i(u[uname], unit); };
+    bind(0, 'base', 'uBase'); bind(1, 'ao', 'uAO'); bind(2, 'lc', 'uLC'); bind(3, 'val', 'uVal');
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.atlasArr); gl.uniform1i(u.uAtlas, 4);
+    bind(5, 'index', 'uIndex'); bind(6, 'mask', 'uMask'); bind(7, 'ctx', 'uCtx');
+    const cb = opt.ctx; gl.uniform4f(u.uCtxBox, cb.X0, cb.Y0, cb.W * cb.cell, cb.H * cb.cell); gl.uniform2f(u.uCtxSize, cb.W, cb.H);
+    const g = opt.grid;
+    gl.uniform2f(u.uViewport, W, H);
+    gl.uniform2f(u.uCenter, view.cx, view.cy);
+    gl.uniform1f(u.uRes, view.res / view.gdpr);
+    gl.uniform2f(u.uBaseSize, g.base.W, g.base.H);
+    gl.uniform2f(u.uBaseCell, g.base.cx, g.base.cy);
+    gl.uniform2f(u.uHiCell, g.hires.cx, g.hires.cy);
+    gl.uniform2f(u.uAtlasSize, this.atlasW || 1, this.atlasH || 1);
+    gl.uniform2f(u.uIndexSize, this.indexW || 1, this.indexH || 1);
+    gl.uniform2f(u.uExtent, g.base.W * g.base.cx, g.base.H * g.base.cy);
+    gl.uniform1f(u.uAtlasCols, this.atlasCols || 1);
+    gl.uniform1f(u.uAtlasPer, this.atlasPer || 1);
+    gl.uniform1f(u.uHasHi, this.hasHi);
+    const resGL = view.res / view.gdpr;   // metres per GL pixel
+    gl.uniform1f(u.uHiMix, this.hasHi ? 1 - smooth(clamp((resGL - 18) / 14, 0, 1)) : 0);
+    gl.uniform1f(u.uMode, opt.mode);
+    gl.uniform1f(u.uContours, opt.contours ? 1 : 0);
+    gl.uniform1f(u.uValleys, opt.valleys);
+    gl.uniform1f(u.uWater, opt.water ? 1 : 0);
+    gl.uniform1f(u.uContInt, opt.interval);
+    gl.uniform1f(u.uExag, opt.exag);
+    gl.uniform1f(u.uDpr, view.gdpr);
+    gl.uniform3f(u.uLight, opt.light[0], opt.light[1], opt.light[2]);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  App bootstrap, view state, interaction, 2D overlay (vectors, labels, peaks)
+// ---------------------------------------------------------------------------
+const D = window.PYR;
+const G = D.grid;
+const EXT_W = G.base.W * G.base.cx, EXT_H = G.base.H * G.base.cy;
+const A = {
+  view: { cx: EXT_W * 0.52, cy: EXT_H * 0.47, res: 160, dpr: 1, W: 0, H: 0 },
+  opt: { mode: 1, contours: true, valleys: true, water: true, places: true, roads: true, labels: true, sunAz: 315 },
+  sel: null, hover: null, filt: { pri: true, sec: true, fr: true, zone: '', q: '', sort: 'alt' },
+  peaks: D.peaks, byId: {}, vis: new Set(),
+};
+A.peaks.forEach(p => { A.byId[p.id] = p; p.rank = 0; });
+[...A.peaks].sort((a, b) => b.a - a.a).forEach((p, i) => p.rank = i + 1);
+// "major" peaks: labelled even at the overview
+(() => {
+  const best = {};
+  for (const p of A.peaks) if (p.c && (!best[p.z] || p.a > best[p.z].a)) best[p.z] = p;
+  for (const p of A.peaks) p.major = !!(best[p.z] === p || (p.c && p.a >= 3250));
+})();
+const MIN_RES = 1.6, MAX_RES = 330;
+
+function setLoad(msg, f) { $('#ldMsg').textContent = msg; $('#ldBar').style.width = Math.round(f * 100) + '%'; }
+const tick = () => new Promise(r => setTimeout(r, 16));
+
+// ---------------------------------------------------------------- elevation (CPU)
+let BASEH = null, HI = null;   // HI: {data Int16Array (m × 4), slot Map 'tx_ty'->slot}
+function elevAt(x, y) {
+  if (HI) {
+    const gx = x / G.hires.cx, gy = y / G.hires.cy;
+    const tx = Math.floor(gx / 128), ty = Math.floor(gy / 128);
+    const s = HI.slot.get(tx + '_' + ty);
+    if (s !== undefined) {
+      const lx = gx - tx * 128 + 2 - 0.5, ly = gy - ty * 128 + 2 - 0.5;
+      const ix = Math.floor(lx), iy = Math.floor(ly), fx = lx - ix, fy = ly - iy;
+      const o = s * 132 * 132, d = HI.data;
+      const a = d[o + iy * 132 + ix], b = d[o + iy * 132 + ix + 1], c = d[o + (iy + 1) * 132 + ix], e = d[o + (iy + 1) * 132 + ix + 1];
+      return ((a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + e * fx) * fy) * 0.25;
+    }
+  }
+  const W = G.base.W, H = G.base.H;
+  const lx = clamp(x / G.base.cx - 0.5, 0, W - 1.001), ly = clamp(y / G.base.cy - 0.5, 0, H - 1.001);
+  const ix = Math.floor(lx), iy = Math.floor(ly), fx = lx - ix, fy = ly - iy;
+  const a = BASEH[iy * W + ix], b = BASEH[iy * W + ix + 1], c = BASEH[(iy + 1) * W + ix], e = BASEH[(iy + 1) * W + ix + 1];
+  return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + e * fx) * fy;
+}
+const toLL = (x, y) => [G.LON0 + x / G.KX, G.LAT1 - y / G.KY];
+
+// ---------------------------------------------------------------- derived textures
+const LC_COLORS = { // class -> albedo, forest weight
+  0: [0.78, 0.78, 0.76, 0], 1: [0.37, 0.49, 0.31, 1], 2: [0.56, 0.63, 0.41, 0.3], 3: [0.67, 0.74, 0.49, 0],
+  4: [0.82, 0.81, 0.62, 0], 5: [0.76, 0.71, 0.67, 0], 6: [0.77, 0.76, 0.73, 0], 7: [0.96, 0.97, 0.99, 0],
+  8: [0.56, 0.75, 0.87, 0], 9: [0.60, 0.72, 0.58, 0], 10: [0.71, 0.72, 0.65, 0]
+};
+function makeLC(cls, W, H) {
+  const out = new Uint8Array(W * H * 4);
+  let s = 1234567;
+  for (let i = 0; i < W * H; i++) {
+    const c = LC_COLORS[cls[i]] || LC_COLORS[0];
+    s = (s * 1103515245 + 12345) & 0x7fffffff;
+    const n = ((s >> 8) & 255) / 255 - 0.5;
+    const k = 1 + n * 0.05;
+    out[i * 4] = clamp(c[0] * k * 255, 0, 255); out[i * 4 + 1] = clamp(c[1] * k * 255, 0, 255);
+    out[i * 4 + 2] = clamp(c[2] * k * 255, 0, 255); out[i * 4 + 3] = c[3] * 255;
+  }
+  return out;
+}
+function boxBlur(src, W, H, r) {
+  const tmp = new Float32Array(W * H), out = new Float32Array(W * H), n = 2 * r + 1;
+  for (let y = 0; y < H; y++) {
+    let acc = 0; const row = y * W;
+    for (let x = -r; x <= r; x++) acc += src[row + clamp(x, 0, W - 1)];
+    for (let x = 0; x < W; x++) {
+      tmp[row + x] = acc / n;
+      acc += src[row + Math.min(x + r + 1, W - 1)] - src[row + Math.max(x - r, 0)];
+    }
+  }
+  for (let x = 0; x < W; x++) {
+    let acc = 0;
+    for (let y = -r; y <= r; y++) acc += tmp[clamp(y, 0, H - 1) * W + x];
+    for (let y = 0; y < H; y++) {
+      out[y * W + x] = acc / n;
+      acc += tmp[Math.min(y + r + 1, H - 1) * W + x] - tmp[Math.max(y - r, 0) * W + x];
+    }
+  }
+  return out;
+}
+function makeAO(h, W, H) {
+  let b = boxBlur(h, W, H, 5); b = boxBlur(b, W, H, 5); b = boxBlur(b, W, H, 5);
+  let b2 = boxBlur(h, W, H, 2); b2 = boxBlur(b2, W, H, 2);
+  const out = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) {
+    const v = 0.5 + (h[i] - b[i]) / 420 + (h[i] - b2[i]) / 260;
+    out[i] = clamp(v, 0, 1) * 255;
+  }
+  return out;
+}
+function makeValleyTint(valleys) {
+  const W = Math.ceil(G.base.W / 2), H = Math.ceil(G.base.H / 2);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  const sx = 1 / (G.base.cx * 2), sy = 1 / (G.base.cy * 2);
+  for (const v of valleys) {
+    const [r, g, b] = hexRgb(VALLEY_COLORS[v.c % VALLEY_COLORS.length]);
+    const k = v.s === 'fr' ? 0.62 : 1;
+    const path = new Path2D();
+    for (const ring of v.rf) {
+      for (let i = 0; i < ring.length; i += 2) { const x = ring[i] * sx, y = ring[i + 1] * sy; i ? path.lineTo(x, y) : path.moveTo(x, y); }
+      path.closePath();
+    }
+    ctx.fillStyle = `rgba(${r},${g},${b},${0.05 * k})`;
+    ctx.fill(path);
+    ctx.save(); ctx.clip(path);
+    for (const [w, a] of [[18, 0.06], [10, 0.09], [5, 0.12], [2, 0.17]]) {
+      ctx.lineWidth = w; ctx.strokeStyle = `rgba(${r},${g},${b},${a * k})`; ctx.lineJoin = 'round'; ctx.stroke(path);
+    }
+    ctx.restore();
+  }
+  return { cv, W, H };
+}
+
+// ---------------------------------------------------------------- vectors
+let V = null;
+function prepVectors(raw) {
+  const v = {};
+  v.lakes = raw.lakes.map(p => p.map(undelta));
+  v.glaciers = raw.glaciers.map(p => p.map(undelta));
+  const lines = (arr) => arr.map(([k, a]) => { const f = undelta(a); return { k, f, bb: bboxOf(f) }; });
+  v.rivers = lines(raw.rivers);
+  v.roads = lines(raw.roads);
+  v.borders = raw.borders.map(([k, a]) => { const f = undelta(a); return { k, f, bb: bboxOf(f) }; });
+  v.places = raw.places.map(([n, r, x, y, p]) => ({ n, r, x, y, p }));
+  v.huts = raw.huts.map(([n, k, x, y, e]) => ({ n, k, x, y, e }));
+  v.lakeNames = raw.lakeNames;
+  v.valleys = raw.valleys.map(o => {
+    o.rf = o.rings.map(undelta);
+    o.sf = o.stem && o.stem.length ? undelta(o.stem) : null;
+    return o;
+  });
+  return v;
+}
+
+// ---------------------------------------------------------------- view helpers
+const ov = $('#ov'), mapEl = $('#map');
+let ctx = null, GLR = null;
+function w2s(x, y) { const v = A.view; return [(x - v.cx) / v.res + v.W / 2, (y - v.cy) / v.res + v.H / 2]; }
+function s2w(sx, sy) { const v = A.view; return [v.cx + (sx - v.W / 2) * v.res, v.cy + (sy - v.H / 2) * v.res]; }
+function clampView() {
+  const v = A.view;
+  v.res = clamp(v.res, MIN_RES, MAX_RES);
+  const C = D.ctx;
+  v.cx = clamp(v.cx, C.X0 + 20000, C.X0 + C.W * C.cell - 20000);
+  v.cy = clamp(v.cy, C.Y0 + 15000, C.Y0 + C.H * C.cell - 15000);
+}
+function fitAll(animate = true) {
+  const v = A.view;
+  const padL = window.innerWidth > 760 && !$('#side').classList.contains('collapsed') ? 350 : 0;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of A.peaks) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
+  x0 -= 9000; x1 += 6000; y0 -= 9000; y1 += 9000;
+  const W = v.W - padL - 60, H = v.H - 60;
+  const res = Math.max((x1 - x0) / W, (y1 - y0) / H);
+  const cx = (x0 + x1) / 2 - padL / 2 * res, cy = (y0 + y1) / 2;
+  animate ? flyTo(cx, cy, res) : (v.cx = cx, v.cy = cy, v.res = res, invalidate());
+}
+let anim = null;
+function flyTo(cx, cy, res, ms = 950) {
+  const v = A.view, s = { cx: v.cx, cy: v.cy, res: v.res }, t0 = performance.now();
+  // zoom out a little in the middle for long hops
+  const dist = Math.hypot(cx - s.cx, cy - s.cy) / Math.max(v.W, v.H);
+  const peakRes = Math.max(s.res, res, dist * 0.45);
+  anim = (t) => {
+    const k = clamp((t - t0) / ms, 0, 1), e = easeInOut(k);
+    v.cx = lerp(s.cx, cx, e); v.cy = lerp(s.cy, cy, e);
+    const lr = k < 0.5 ? lerp(Math.log(s.res), Math.log(peakRes), smooth(k * 2)) : lerp(Math.log(peakRes), Math.log(res), smooth(k * 2 - 1));
+    v.res = Math.exp(dist > 0.6 ? lr : lerp(Math.log(s.res), Math.log(res), e));
+    if (k >= 1) anim = null;
+  };
+  invalidate();
+}
+let dirty = true, raf = 0;
+function invalidate() { dirty = true; if (!raf) raf = requestAnimationFrame(frame); }
+function frame(t) {
+  raf = 0;
+  if (anim) { anim(t); dirty = true; }
+  if (inertia) { stepInertia(); dirty = true; }
+  if (dirty) { dirty = false; clampView(); render(); }
+  if (anim || inertia) raf = requestAnimationFrame(frame);
+}
+function resize() {
+  const v = A.view, r = mapEl.getBoundingClientRect();
+  v.dpr = Math.min(window.devicePixelRatio || 1, 2);
+  v.gdpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  v.W = r.width; v.H = r.height;
+  GLR.canvas.width = Math.round(v.W * v.gdpr); GLR.canvas.height = Math.round(v.H * v.gdpr);
+  ov.width = Math.round(v.W * v.dpr); ov.height = Math.round(v.H * v.dpr);
+  invalidate();
+}
+function contourInterval(res) {
+  if (res > 110) return 500; if (res > 50) return 200; if (res > 20) return 100; if (res > 9) return 50; if (res > 3.6) return 20; return 10;
+}
+function lightDir(az) {
+  const a = az * Math.PI / 180, alt = 42 * Math.PI / 180;
+  // world: x east, y south, z up -> towards light
+  return [Math.sin(a) * Math.cos(alt), -Math.cos(a) * Math.cos(alt), Math.sin(alt)];
+}
+
+// ---------------------------------------------------------------- render
+function render() {
+  const v = A.view;
+  const interval = contourInterval(v.res);
+  GLR.render(v, {
+    grid: G, ctx: D.ctx, mode: A.opt.mode, contours: A.opt.contours, valleys: A.opt.valleys ? clamp(0.45 + (v.res - 8) / 60, 0.45, 1.25) : 0, water: A.opt.water,
+    interval, exag: clamp(1.3 + Math.log2(Math.max(v.res, 4) / 4) * 0.35, 1.3, 3.2), light: lightDir(A.opt.sunAz),
+    maskLayers: [{ buf: MASK.lakes, ch: 0 }, { buf: MASK.ice, ch: 1 }]
+  });
+  $('#ci').textContent = fmtM(interval) + ' m';
+  drawOverlay();
+  updateScale();
+  positionCard();
+}
+let MASK = {};
+
+// ---------------------------------------------------------------- overlay
+const LBL = { obst: [] };
+function hitLabels(r, arr) { for (const o of arr) if (r[0] < o[2] && r[2] > o[0] && r[1] < o[3] && r[3] > o[1]) return true; return false; }
+function hit(r) { for (const o of LBL.obst) if (r[0] < o[2] && r[2] > o[0] && r[1] < o[3] && r[3] > o[1]) return true; return false; }
+function inView(bb, pad) {
+  const v = A.view, x0 = v.cx - v.W / 2 * v.res - pad, x1 = v.cx + v.W / 2 * v.res + pad, y0 = v.cy - v.H / 2 * v.res - pad, y1 = v.cy + v.H / 2 * v.res + pad;
+  return !(bb[2] < x0 || bb[0] > x1 || bb[3] < y0 || bb[1] > y1);
+}
+function strokeLines(list, filter, style, width) {
+  const v = A.view; ctx.beginPath(); let any = false;
+  for (const L of list) {
+    if (!filter(L) || !inView(L.bb, 200)) continue;
+    const f = L.f; any = true;
+    let px = (f[0] - v.cx) / v.res + v.W / 2, py = (f[1] - v.cy) / v.res + v.H / 2;
+    ctx.moveTo(px, py);
+    const step = v.res > 60 ? 4 : 2;
+    for (let i = step; i < f.length; i += step) {
+      const x = (f[i] - v.cx) / v.res + v.W / 2, y = (f[i + 1] - v.cy) / v.res + v.H / 2;
+      if (Math.abs(x - px) + Math.abs(y - py) > 1.2 || i >= f.length - step) { ctx.lineTo(x, y); px = x; py = y; }
+    }
+    const n = f.length; ctx.lineTo((f[n - 2] - v.cx) / v.res + v.W / 2, (f[n - 1] - v.cy) / v.res + v.H / 2);
+  }
+  if (!any) return;
+  ctx.strokeStyle = style; ctx.lineWidth = width; ctx.stroke();
+}
+function haloText(t, x, y, fill, halo = 'rgba(255,255,255,.88)', hw = 3) {
+  ctx.lineWidth = hw; ctx.strokeStyle = halo; ctx.lineJoin = 'round'; ctx.strokeText(t, x, y);
+  ctx.fillStyle = fill; ctx.fillText(t, x, y);
+}
+function drawValleyLabels() {
+  const v = A.view;
+  if (v.res > 170 || v.res < 6) return;
+  for (const val of V.valleys) {
+    const areaPx = val.a * 1e6 / (v.res * v.res);
+    if (areaPx < (v.res > 100 ? 16000 : 9000)) continue;
+    const bb = [val.px - 20000, val.py - 20000, val.px + 20000, val.py + 20000];
+    if (!inView(bb, 0)) continue;
+    const [r, g, b] = hexRgb(VALLEY_COLORS[val.c % VALLEY_COLORS.length]);
+    const fs = clamp(Math.sqrt(areaPx) / 22, 12, 21) * (val.s === 'fr' ? 0.86 : 1);
+    ctx.font = `italic 600 ${fs.toFixed(1)}px ${getComputedStyle(document.documentElement).getPropertyValue('--f-serif')}`;
+    const txt = val.n.toUpperCase();
+    const sp = fs * 0.2;
+    const widths = [...txt].map(ch => ctx.measureText(ch).width + sp);
+    const total = widths.reduce((a, b) => a + b, 0);
+    const col = `rgba(${Math.round(r * .62)},${Math.round(g * .62)},${Math.round(b * .62)},${val.s === 'fr' ? .72 : .9})`;
+    // try along stem
+    let placed = false;
+    if (val.sf && val.sf.length >= 6) {
+      const pts = [];
+      for (let i = 0; i < val.sf.length; i += 2) pts.push(w2s(val.sf[i], val.sf[i + 1]));
+      // smooth in screen space
+      const L = [0]; for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+      const len = L[L.length - 1];
+      if (len > total * 1.15) {
+        let s0 = len * 0.5 - total / 2;
+        // direction left->right
+        const at = (s) => { let k = 1; while (k < L.length - 1 && L[k] < s) k++; const t = (s - L[k - 1]) / Math.max(L[k] - L[k - 1], 1e-6); const p = pts[k - 1], q = pts[k]; return [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, Math.atan2(q[1] - p[1], q[0] - p[0])]; };
+        const a0 = at(s0), a1 = at(s0 + total);
+        const rev = a1[0] < a0[0];
+        const chars = [...txt];
+        // check curvature: max angle change between consecutive glyph centres
+        let ok = true, prevAng = null, boxes = [];
+        const glyphs = [];
+        let s = s0;
+        for (let k = 0; k < chars.length; k++) {
+          const ci = rev ? chars.length - 1 - k : k;
+          const w = widths[ci];
+          const c = at(s + w / 2);
+          let ang = c[2] + (rev ? Math.PI : 0);
+          if (prevAng !== null) { let d = Math.abs(ang - prevAng); d = Math.min(d, 2 * Math.PI - d); if (d > 0.42) ok = false; }
+          prevAng = ang;
+          glyphs.push([chars[ci], c[0], c[1], ang]);
+          boxes.push([c[0] - fs * .6, c[1] - fs * .6, c[0] + fs * .6, c[1] + fs * .6]);
+          s += w;
+        }
+        if (ok && boxes.some(b => hit(b))) ok = false;
+        if (ok) {
+          for (const b of boxes) LBL.obst.push(b);
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          for (const [ch, x, y, ang] of glyphs) {
+            ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+            haloText(ch, 0, 0, col, 'rgba(255,255,255,.65)', 3.2);
+            ctx.restore();
+          }
+          placed = true;
+        }
+      }
+    }
+    if (!placed) {
+      const [x, y] = w2s(val.px, val.py);
+      const rb = [x - total / 2, y - fs * 0.7, x + total / 2, y + fs * 0.7];
+      if (hit(rb)) continue;
+      LBL.obst.push(rb);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      let xx = x - total / 2;
+      for (let k = 0; k < txt.length; k++) { haloText(txt[k], xx + widths[k] / 2 - sp / 2 - ctx.measureText(txt[k]).width / 2, y, col, 'rgba(255,255,255,.65)', 3.2); xx += widths[k]; }
+    }
+  }
+}
+function tri(x, y, s, principal, state) {
+  ctx.beginPath();
+  ctx.moveTo(x, y - s * 0.62); ctx.lineTo(x + s * 0.58, y + s * 0.42); ctx.lineTo(x - s * 0.58, y + s * 0.42); ctx.closePath();
+  if (state === 'sel') {
+    ctx.save(); ctx.shadowColor = 'rgba(179,38,30,.6)'; ctx.shadowBlur = 12;
+    ctx.fillStyle = '#b3261e'; ctx.fill(); ctx.restore();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+    return;
+  }
+  if (principal) { ctx.fillStyle = state === 'hov' ? '#d8352b' : '#b3261e'; ctx.fill(); ctx.lineWidth = 1.4; ctx.strokeStyle = '#fff'; ctx.stroke(); }
+  else { ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = 1.6; ctx.strokeStyle = state === 'hov' ? '#d8352b' : '#b3261e'; ctx.stroke(); }
+}
+function drawOverlay() {
+  const v = A.view, dpr = v.dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, v.W, v.H);
+  LBL.obst = [];
+  const res = v.res;
+  // rivers
+  if (A.opt.water) {
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (res < 120) strokeLines(V.rivers, L => L.k === 0 && res < 45, 'rgba(56,128,184,.55)', res < 12 ? 1.1 : 0.8);
+    strokeLines(V.rivers, L => L.k === 1, 'rgba(48,120,180,.78)', res < 20 ? 2.2 : res < 80 ? 1.5 : 1.0);
+  }
+  // roads & borders
+  if (A.opt.roads) {
+    if (res < 140) {
+      strokeLines(V.roads, L => L.k <= (res < 30 ? 3 : res < 70 ? 2 : 1), 'rgba(255,255,255,.85)', res < 20 ? 3.4 : 2.6);
+      strokeLines(V.roads, L => L.k <= (res < 30 ? 3 : res < 70 ? 2 : 1), 'rgba(170,92,48,.75)', res < 20 ? 1.6 : 1.1);
+    }
+    ctx.setLineDash([7, 3, 1.5, 3]);
+    strokeLines(V.borders, L => L.k === 'nat', 'rgba(255,255,255,.7)', 4.2);
+    strokeLines(V.borders, L => L.k === 'nat', 'rgba(105,52,128,.9)', 1.8);
+    ctx.setLineDash([5, 4]);
+    strokeLines(V.borders, L => L.k === 'reg', 'rgba(105,52,128,.55)', 1.2);
+    ctx.setLineDash([]);
+  }
+  if (A.opt.valleys) {
+    ctx.setLineDash([]); ctx.lineJoin = 'round';
+    const pathOf = (val) => { ctx.beginPath(); for (const ring of val.rf) { for (let i = 0; i < ring.length; i += 2) { const x = (ring[i] - v.cx) / v.res + v.W / 2, y = (ring[i + 1] - v.cy) / v.res + v.H / 2; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.closePath(); } };
+    for (const val of V.valleys) {
+      pathOf(val);
+      ctx.strokeStyle = res > 100 ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.42)'; ctx.lineWidth = res > 100 ? 1.5 : 2.2; ctx.stroke();
+    }
+    if (A.hoverVal && !A.hover) {
+      const val = A.hoverVal, [r, g, b] = hexRgb(VALLEY_COLORS[val.c % VALLEY_COLORS.length]);
+      pathOf(val);
+      ctx.fillStyle = `rgba(${r},${g},${b},.13)`; ctx.fill('evenodd');
+      ctx.strokeStyle = `rgba(${r},${g},${b},.9)`; ctx.lineWidth = 2.4; ctx.setLineDash([8, 4]); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+  // ---- peaks (markers first as obstacles)
+  const list = [];
+  for (const p of A.peaks) {
+    if (!A.vis.has(p.id)) continue;
+    const [x, y] = w2s(p.x, p.y);
+    if (x < -40 || y < -40 || x > v.W + 40 || y > v.H + 40) continue;
+    list.push([p, x, y]);
+  }
+  const big = res < 60;
+  for (const [p, x, y] of list) {
+    const s = (p.c ? (big ? 12 : 10) : (big ? 9 : 6.5)) * (res > 150 ? 0.85 : 1);
+    LBL.obst.push([x - s * 0.6, y - s * 0.7, x + s * 0.6, y + s * 0.5]);
+  }
+  // labels by priority
+  const lab = [];
+  if (A.opt.labels) {
+    for (const [p, x, y] of list) {
+      let pri;
+      if (A.sel === p) pri = 1e6; else if (A.hover === p) pri = 9e5;
+      else if (res > 110 && !p.major) continue;
+      else if (res > 45 && !p.c && !p.major) continue;
+      else pri = (p.major ? 5000 : 0) + (p.c ? 4000 : 0) + p.a;
+      lab.push([pri, p, x, y]);
+    }
+    lab.sort((a, b) => b[0] - a[0]);
+  }
+  const fD = getComputedStyle(document.documentElement).getPropertyValue('--f-display');
+  const placedLabels = [], placedRects = [];
+  for (const [pri, p, x, y] of lab) {
+    const fs = p.major && res > 45 ? 14.5 : p.c ? 13.5 : 12.5;
+    ctx.font = `600 ${fs}px ${fD}`;
+    const w1 = ctx.measureText(p.n).width;
+    ctx.font = `500 ${fs - 2}px ${fD}`;
+    const altT = fmtM(p.a);
+    const w2 = ctx.measureText(altT).width;
+    const w = Math.max(w1, w2), h = fs * 2.05;
+    const cands = [[x + 9, y - h / 2 - 1], [x - 9 - w, y - h / 2 - 1], [x - w / 2, y - h - 8], [x - w / 2, y + 7],
+      [x + 8, y - h - 2], [x + 8, y + 2], [x - 8 - w, y - h - 2], [x - 8 - w, y + 2]];
+    const forced = pri >= 9e5;
+    for (const [lx, ly] of cands) {
+      const r = [lx - 2, ly, lx + w + 2, ly + h];
+      if (forced || !(p.major ? hitLabels(r, placedRects) : hit(r))) {
+        LBL.obst.push(r); placedRects.push(r); placedLabels.push([p, lx, ly, fs, w]);
+        break;
+      }
+    }
+  }
+  if (A.opt.valleys) drawValleyLabels();
+  // places & huts (lower priority, after peak labels)
+  if (A.opt.places) drawPlaces(fD);
+  drawContourLabels(fD);
+  // markers
+  for (const [p, x, y] of list) {
+    const s = (p.c ? (big ? 12 : 10) : (big ? 9 : 6.5)) * (res > 150 ? 0.85 : 1);
+    tri(x, y, s, p.c, A.sel === p ? 'sel' : A.hover === p ? 'hov' : '');
+  }
+  for (const [p, lx, ly, fs] of placedLabels) {
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    const sel = A.sel === p;
+    ctx.font = `${p.c || sel ? 700 : 600} ${fs}px ${fD}`;
+    haloText(p.n, lx, ly, sel ? '#8f1d16' : '#17222a', 'rgba(255,255,255,.92)', 3.4);
+    ctx.font = `500 ${fs - 2}px ${fD}`;
+    haloText(fmtM(p.a) + ' m', lx, ly + fs * 1.02, sel ? '#b3261e' : '#4d5a62', 'rgba(255,255,255,.9)', 3);
+  }
+}
+function drawContourLabels(fD) {
+  const v = A.view, res = v.res;
+  if (!A.opt.contours || res > 32) return;
+  const I = contourInterval(res) * 5;
+  const step = 210, ox = ((v.cx / res) % step + step) % step, oy = ((v.cy / res) % step + step) % step;
+  ctx.font = `600 10.5px ${fD}`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let gy = -oy + 40; gy < v.H; gy += step) {
+    for (let gx = -ox + 40 + ((Math.round((gy + oy) / step) & 1) ? step / 2 : 0); gx < v.W; gx += step) {
+      let [wx, wy] = s2w(gx, gy);
+      if (wx < 0 || wy < 0 || wx > EXT_W || wy > EXT_H) continue;
+      let ok = false, gxw = 0, gyw = 0, L = 0;
+      const e = Math.max(res * 1.5, 6);
+      for (let it = 0; it < 4; it++) {
+        const h = elevAt(wx, wy);
+        gxw = (elevAt(wx + e, wy) - elevAt(wx - e, wy)) / (2 * e); gyw = (elevAt(wx, wy + e) - elevAt(wx, wy - e)) / (2 * e);
+        const g2 = gxw * gxw + gyw * gyw; if (g2 < 1e-4) break;
+        if (it === 0) L = Math.round(h / I) * I;
+        const d = (L - h) / g2; wx += gxw * d; wy += gyw * d;
+        if (Math.abs(L - h) < 0.6) { ok = true; break; }
+      }
+      if (!ok) continue;
+      const g = Math.hypot(gxw, gyw), spacingPx = (I / 5) / (g * res);
+      if (spacingPx < 9 || spacingPx > 260) continue;
+      const [sx, sy] = w2s(wx, wy);
+      if (Math.hypot(sx - gx, sy - gy) > 90) continue;
+      const t = String(fmtM(L)), w = ctx.measureText(t).width + 6;
+      const r = [sx - w / 2 - 2, sy - w / 2 - 2, sx + w / 2 + 2, sy + w / 2 + 2];
+      if (hit(r)) continue;
+      let th = Math.atan2(gxw / g, -gyw / g);
+      if (th > Math.PI / 2) th -= Math.PI; else if (th < -Math.PI / 2) th += Math.PI;
+      ctx.save(); ctx.translate(sx, sy); ctx.rotate(th);
+      haloText(t, 0, 0, 'rgba(110,64,30,.95)', 'rgba(255,250,240,.92)', 3.6);
+      ctx.restore();
+      LBL.obst.push(r);
+    }
+  }
+}
+function drawPlaces(fD) {
+  const v = A.view, res = v.res;
+  const fB = getComputedStyle(document.documentElement).getPropertyValue('--f-body');
+  const fS = getComputedStyle(document.documentElement).getPropertyValue('--f-serif');
+  // huts
+  if (res < 40) {
+    for (const h of V.huts) {
+      if (h.k !== 1 && res > 14) continue;
+      const [x, y] = w2s(h.x, h.y);
+      if (x < -20 || y < -20 || x > v.W + 20 || y > v.H + 20) continue;
+      const s = h.k === 1 ? 5.5 : 4.5;
+      const box = [x - s, y - s, x + s, y + s];
+      if (hit(box)) continue;
+      ctx.beginPath(); ctx.moveTo(x - s, y + s * 0.8); ctx.lineTo(x - s, y - s * 0.1); ctx.lineTo(x, y - s); ctx.lineTo(x + s, y - s * 0.1); ctx.lineTo(x + s, y + s * 0.8); ctx.closePath();
+      ctx.fillStyle = h.k === 1 ? '#7a4b2a' : '#fff'; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = h.k === 1 ? '#fff' : '#7a4b2a'; ctx.stroke();
+      LBL.obst.push(box);
+      if (res < (h.k === 1 ? 22 : 9)) {
+        ctx.font = `italic 500 11px ${fB}`;
+        const t = h.n, w = ctx.measureText(t).width;
+        const r = [x + 8, y - 7, x + 10 + w, y + 7];
+        if (!hit(r)) { ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; haloText(t, x + 8, y, '#5a3820'); LBL.obst.push(r); }
+      }
+    }
+  }
+  // lake names
+  if (A.opt.water && res < 14) {
+    ctx.font = `italic 600 12.5px ${fS}`;
+    for (const l of V.lakeNames) {
+      if (l.a < res * res * 900) continue;
+      const [x, y] = w2s(l.x, l.y);
+      if (x < 0 || y < 0 || x > v.W || y > v.H) continue;
+      const w = ctx.measureText(l.n).width, r = [x - w / 2, y - 7, x + w / 2, y + 7];
+      if (hit(r)) continue;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; haloText(l.n, x, y, '#1f5f8f', 'rgba(255,255,255,.75)', 2.6); LBL.obst.push(r);
+    }
+  }
+  // towns
+  const maxRank = res > 120 ? 1 : res > 50 ? 2 : res > 18 ? 2 : 3;
+  const pl = V.places.filter(p => p.r <= maxRank).sort((a, b) => a.r - b.r || b.p - a.p);
+  for (const p of pl) {
+    const [x, y] = w2s(p.x, p.y);
+    if (x < 0 || y < 0 || x > v.W || y > v.H) continue;
+    const fs = p.r <= 1 ? 13 : p.r === 2 ? 11.5 : 10.5;
+    ctx.font = `${p.r <= 1 ? 600 : 500} ${fs}px ${fB}`;
+    const w = ctx.measureText(p.n).width;
+    const r = [x - 3, y - fs, x + 7 + w, y + 4];
+    if (hit(r)) continue;
+    ctx.beginPath(); ctx.arc(x, y, p.r <= 1 ? 3.2 : 2.4, 0, 6.283); ctx.fillStyle = '#2b2b2b'; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    haloText(p.n, x + 5, y + 1, '#2a3238', 'rgba(255,255,255,.85)', 3);
+    LBL.obst.push(r);
+  }
+}
+function updateScale() {
+  const v = A.view, target = 110 * v.res;
+  const pow = Math.pow(10, Math.floor(Math.log10(target)));
+  const n = [1, 2, 5, 10].map(k => k * pow).filter(k => k <= target).pop() || pow;
+  $('#scaleBar').style.width = (n / v.res).toFixed(1) + 'px';
+  $('#scaleTxt').textContent = fmtKm(n);
+}
+
+// ---------------------------------------------------------------- picking & input
+function pip(ring, x, y) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
+    const xi = ring[i], yi = ring[i + 1], xj = ring[j], yj = ring[j + 1];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function valleyAt(x, y) {
+  for (const v of V.valleys) {
+    let c = false;
+    for (const r of v.rf) if (pip(r, x, y)) c = !c;
+    if (c) return v;
+  }
+  return null;
+}
+function pick(sx, sy) {
+  let best = null, bd = 15;
+  for (const p of A.peaks) {
+    if (!A.vis.has(p.id)) continue;
+    const [x, y] = w2s(p.x, p.y);
+    const d = Math.hypot(x - sx, y - sy);
+    if (d < bd || (d === bd && best && p.c > best.c)) { bd = d; best = p; }
+  }
+  return best;
+}
+let inertia = null, lastMoves = [];
+function stepInertia() {
+  const v = A.view;
+  v.cx -= inertia.vx * v.res; v.cy -= inertia.vy * v.res;
+  inertia.vx *= 0.92; inertia.vy *= 0.92;
+  if (Math.hypot(inertia.vx, inertia.vy) < 0.15) inertia = null;
+}
+function zoomAt(sx, sy, f) {
+  const v = A.view;
+  const [wx, wy] = s2w(sx, sy);
+  v.res = clamp(v.res / f, MIN_RES, MAX_RES);
+  v.cx = wx - (sx - v.W / 2) * v.res; v.cy = wy - (sy - v.H / 2) * v.res;
+  invalidate();
+}
+function animZoomAt(sx, sy, f) {
+  const v = A.view; const [wx, wy] = s2w(sx, sy);
+  const r1 = clamp(v.res / f, MIN_RES, MAX_RES);
+  flyTo(wx - (sx - v.W / 2) * r1, wy - (sy - v.H / 2) * r1, r1, 420);
+}
+function setupInput() {
+  const ptrs = new Map(); let down = null, moved = false, pinch = null;
+  mapEl.addEventListener('pointerdown', e => {
+    mapEl.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    anim = null; inertia = null;
+    if (ptrs.size === 1) { down = { x: e.offsetX, y: e.offsetY, cx: A.view.cx, cy: A.view.cy }; moved = false; lastMoves = []; }
+    if (ptrs.size === 2) {
+      const [a, b] = [...ptrs.values()];
+      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), res: A.view.res, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, w: s2w((a.x + b.x) / 2, (a.y + b.y) / 2) };
+      down = null;
+    }
+  });
+  mapEl.addEventListener('pointermove', e => {
+    const p = ptrs.get(e.pointerId);
+    if (p) { p.x = e.offsetX; p.y = e.offsetY; }
+    if (pinch && ptrs.size === 2) {
+      const [a, b] = [...ptrs.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      const v = A.view;
+      v.res = clamp(pinch.res * pinch.d / Math.max(d, 1), MIN_RES, MAX_RES);
+      v.cx = pinch.w[0] - (mx - v.W / 2) * v.res; v.cy = pinch.w[1] - (my - v.H / 2) * v.res;
+      moved = true; invalidate(); return;
+    }
+    if (down) {
+      const dx = e.offsetX - down.x, dy = e.offsetY - down.y;
+      if (!moved && Math.hypot(dx, dy) > 3) { moved = true; mapEl.classList.add('dragging'); hideTip(); }
+      if (moved) {
+        A.view.cx = down.cx - dx * A.view.res; A.view.cy = down.cy - dy * A.view.res;
+        lastMoves.push([e.timeStamp, e.offsetX, e.offsetY]); if (lastMoves.length > 6) lastMoves.shift();
+        invalidate();
+      }
+      return;
+    }
+    // hover
+    const h = pick(e.offsetX, e.offsetY);
+    if (h !== A.hover) { A.hover = h; mapEl.classList.toggle('hovering', !!h); invalidate(); }
+    if (h) showTip(h); else hideTip();
+    let hv = null;
+    if (!h && A.opt.valleys) { const [wx, wy] = s2w(e.offsetX, e.offsetY); hv = valleyAt(wx, wy); }
+    if (hv !== A.hoverVal) { A.hoverVal = hv; $('#roV').textContent = hv ? hv.n : ''; invalidate(); }
+    readout(e.offsetX, e.offsetY);
+  });
+  const up = e => {
+    ptrs.delete(e.pointerId);
+    if (ptrs.size < 2) pinch = null;
+    if (down && ptrs.size === 0) {
+      mapEl.classList.remove('dragging');
+      if (!moved) {
+        const h = pick(e.offsetX, e.offsetY);
+        if (h) selectPeak(h, { fly: false }); else if (A.sel) closeCard();
+      } else if (lastMoves.length >= 2) {
+        const a = lastMoves[0], b = lastMoves[lastMoves.length - 1], dt = Math.max(b[0] - a[0], 1);
+        if (e.timeStamp - b[0] < 80) { inertia = { vx: (b[1] - a[1]) / dt * 16, vy: (b[2] - a[2]) / dt * 16 }; invalidate(); }
+      }
+      down = null;
+    }
+  };
+  mapEl.addEventListener('pointerup', up);
+  mapEl.addEventListener('pointercancel', up);
+  mapEl.addEventListener('pointerleave', () => { if (A.hover || A.hoverVal) { A.hover = null; A.hoverVal = null; $('#roV').textContent = ''; invalidate(); } hideTip(); });
+  mapEl.addEventListener('wheel', e => {
+    e.preventDefault(); anim = null;
+    const k = e.deltaMode === 1 ? 0.05 : e.ctrlKey ? 0.012 : 0.0022;
+    zoomAt(e.offsetX, e.offsetY, Math.exp(-e.deltaY * k));
+  }, { passive: false });
+  mapEl.addEventListener('dblclick', e => { e.preventDefault(); animZoomAt(e.offsetX, e.offsetY, e.shiftKey ? 0.5 : 2.2); });
+  window.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && A.sel && $('#v3d').hidden) { closeCard(); return; }
+    if (e.target.closest('input,select,textarea') || !$('#v3d').hidden) return;
+    const v = A.view, step = 120 * v.res;
+    if (e.key === '+' || e.key === '=') animZoomAt(v.W / 2, v.H / 2, 1.8);
+    else if (e.key === '-') animZoomAt(v.W / 2, v.H / 2, 1 / 1.8);
+    else if (e.key === 'ArrowLeft') flyTo(v.cx - step, v.cy, v.res, 250);
+    else if (e.key === 'ArrowRight') flyTo(v.cx + step, v.cy, v.res, 250);
+    else if (e.key === 'ArrowUp') flyTo(v.cx, v.cy - step, v.res, 250);
+    else if (e.key === 'ArrowDown') flyTo(v.cx, v.cy + step, v.res, 250);
+    else if (e.key === 'Escape' && A.sel) closeCard();
+    else return;
+    e.preventDefault();
+  });
+  $('#zin').onclick = () => animZoomAt(A.view.W / 2, A.view.H / 2, 2);
+  $('#zout').onclick = () => animZoomAt(A.view.W / 2, A.view.H / 2, 0.5);
+  $('#zhome').onclick = () => fitAll();
+}
+let roT = 0;
+function readout(sx, sy) {
+  const now = performance.now(); if (now - roT < 40) return; roT = now;
+  const [x, y] = s2w(sx, sy);
+  if (x < 0 || y < 0 || x > EXT_W || y > EXT_H) { $('#roLL').textContent = '—'; $('#roZ').textContent = ''; return; }
+  const [lon, lat] = toLL(x, y);
+  $('#roLL').textContent = fmtLat(lat) + '  ' + fmtLon(lon);
+  $('#roZ').textContent = fmtM(elevAt(x, y)) + ' m';
+}
+const tipEl = $('#tip');
+function showTip(p) {
+  const [x, y] = w2s(p.x, p.y);
+  tipEl.innerHTML = `${esc(p.n)}<small>${fmtM(p.a)} m</small>`;
+  tipEl.style.left = x + 'px'; tipEl.style.top = (y - 2) + 'px';
+  tipEl.hidden = false;
+}
+function hideTip() { tipEl.hidden = true; }
+
+// ---------------------------------------------------------------------------
+//  UI: filters, index list, peak card, layer controls, boot sequence
+// ---------------------------------------------------------------------------
+const GRADE_TXT = { F: 'Fácil', 'F+': 'Fácil superior', 'PD-': 'Poco difícil inferior', PD: 'Poco difícil', 'PD+': 'Poco difícil superior', 'AD-': 'Algo difícil inferior', AD: 'Algo difícil' };
+const SIDE_TXT = { es: '', fr: 'Francia', ad: 'Andorra', frontera: 'Frontera' };
+let VALLEY_NAME = {};
+const photoURL = {};
+function photoSrc(id) {
+  if (!id || !D.photos[id]) return null;
+  if (!photoURL[id]) photoURL[id] = URL.createObjectURL(new Blob([b64ToBytes(D.photos[id].d)], { type: 'image/avif' }));
+  return photoURL[id];
+}
+function peakSearchText(p) {
+  return norm([p.n, ...(p.alts || []), p.buyse, D.zones[p.z].n, ...(p.v || []).map(v => VALLEY_NAME[v] || '')].join(' '));
+}
+function applyFilters() {
+  const f = A.filt, q = norm(f.q.trim());
+  A.vis.clear();
+  for (const p of A.peaks) {
+    if (p.c && !f.pri) continue;
+    if (!p.c && !f.sec) continue;
+    if (!f.fr && p.side === 'fr') continue;
+    if (f.zone && String(p.z) !== f.zone) continue;
+    if (q && !p._s.includes(q)) continue;
+    A.vis.add(p.id);
+  }
+  renderList(); invalidate();
+}
+function renderList() {
+  const el = $('#list'), f = A.filt;
+  let arr = A.peaks.filter(p => A.vis.has(p.id));
+  if (f.sort === 'alt') arr.sort((a, b) => b.a - a.a || a.n.localeCompare(b.n, 'es'));
+  else if (f.sort === 'name') arr.sort((a, b) => a.n.localeCompare(b.n, 'es'));
+  else arr.sort((a, b) => a.z - b.z || b.a - a.a);
+  const nP = arr.filter(p => p.c).length;
+  $('#count').textContent = `${arr.length} ${arr.length === 1 ? 'cima' : 'cimas'} · ${nP} principales`;
+  if (!arr.length) { el.innerHTML = '<div class="empty">Ninguna cima coincide con la búsqueda. Prueba con otro nombre o quita algún filtro.</div>'; return; }
+  let html = '', lastZ = null;
+  for (const p of arr) {
+    if (f.sort === 'zone' && p.z !== lastZ) { html += `<div class="zonehdr">${esc(D.zones[p.z].n)}</div>`; lastZ = p.z; }
+    const sub = [D.zones[p.z].n, (p.v || []).slice(0, 1).map(v => VALLEY_NAME[v]).join('')].filter(Boolean).join(' · ');
+    html += `<button class="pk${A.sel === p ? ' on' : ''}" data-id="${p.id}" role="listitem"><span class="rk">${p.rank}</span><span class="nm"><b>${esc(p.n)}</b><span>${esc(sub)}</span></span><span class="al">${p.c ? '<svg viewBox="0 0 10 9"><path d="M5 0 10 9H0z" fill="#b3261e"/></svg>' : '<svg viewBox="0 0 10 9"><path d="M5 1.2 9 8.2H1z" fill="none" stroke="#b3261e" stroke-width="1.4"/></svg>'}${fmtM(p.a)}</span></button>`;
+  }
+  el.innerHTML = html;
+}
+function fitVisible() {
+  const arr = A.peaks.filter(p => A.vis.has(p.id));
+  if (!arr.length) return;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of arr) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
+  const v = A.view, padL = window.innerWidth > 760 && !$('#side').classList.contains('collapsed') ? 350 : 0;
+  const W = v.W - padL - 160, H = v.H - 160;
+  const res = clamp(Math.max((x1 - x0) / W, (y1 - y0) / H, 6), MIN_RES, MAX_RES);
+  flyTo((x0 + x1) / 2 - padL / 2 * res, (y0 + y1) / 2, res);
+}
+
+// ------------------------------------------------------------------ card
+const card = $('#card');
+function routeHTML(p, rid) {
+  const r = D.routes[rid]; if (!r) return '';
+  const gain = p.a - r.sa;
+  const meta = [`<span class="g" title="${esc(GRADE_TXT[r.g] || '')}">${esc(r.g)}</span>`];
+  if (gain > 150) meta.push(`<span>≈ ${fmtM(Math.round(gain / 10) * 10)} m de desnivel</span>`);
+  if (r.h) meta.push(`<span>${esc(r.h)}</span>`);
+  return `<div class="route"><h4>${esc(r.t)}</h4>
+    <div class="path"><b>${esc(r.s)}${r.sa ? ' (' + fmtM(r.sa) + ' m)' : ''}</b> → ${esc(r.v)}</div>
+    <div class="meta">${meta.join('')}</div>
+    ${r.n ? `<div class="nt">${esc(r.n)}</div>` : ''}</div>`;
+}
+function reliefThumb(p) {
+  const W = 280, H = 175, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c2 = cv.getContext('2d'), img = c2.createImageData(W, H), res = 9;
+  const L = lightDir(315);
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    const x = p.x + (i - W / 2) * res, y = p.y + (j - H / 2 + 12) * res;
+    const h = elevAt(x, y), dx = (elevAt(x + res, y) - elevAt(x - res, y)) / (2 * res), dy = (elevAt(x, y + res) - elevAt(x, y - res)) / (2 * res);
+    const n = [-dx * 1.6, -dy * 1.6, 1], nl = Math.hypot(...n);
+    const d = (n[0] * L[0] + n[1] * L[1] + n[2] * L[2]) / nl;
+    const t = clamp((h - 1500) / 1900, 0, 1);
+    const base = [lerp(0.66, 0.97, t), lerp(0.70, 0.96, t), lerp(0.55, 0.96, t)];
+    const lt = smooth(clamp((d + 0.35) / 1.3, 0, 1));
+    const k = (i + j * W) * 4;
+    img.data[k] = 255 * base[0] * lerp(0.38, 1.07, lt); img.data[k + 1] = 255 * base[1] * lerp(0.42, 1.03, lt); img.data[k + 2] = 255 * base[2] * lerp(0.55, 0.97, lt); img.data[k + 3] = 255;
+  }
+  c2.putImageData(img, 0, 0);
+  c2.beginPath(); const cx = W / 2, cy = H / 2 - 12; c2.moveTo(cx, cy - 7); c2.lineTo(cx + 6.5, cy + 5); c2.lineTo(cx - 6.5, cy + 5); c2.closePath();
+  c2.fillStyle = '#b3261e'; c2.fill(); c2.strokeStyle = '#fff'; c2.lineWidth = 1.5; c2.stroke();
+  return cv;
+}
+function openCard(p) {
+  const z = D.zones[p.z].n;
+  const valleys = (p.v || []).map(v => VALLEY_NAME[v]).filter(Boolean);
+  const region = (p.reg || []).join(' / ') || (p.side === 'fr' ? 'Francia' : '');
+  const ph = D.photos[p.ph];
+  let phHTML;
+  if (ph) {
+    const near = p.phk === 'near' ? `<span class="near">Foto del entorno</span>` : '';
+    phHTML = `<div class="ph" id="cardPh" role="button" tabindex="0" aria-label="Abrir el modelo 3D de ${esc(p.n)}"><img alt="${esc(ph.t)}" src="${photoSrc(p.ph)}">${near}
+      <span class="go3d"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg>Ver en 3D</span>
+      <div class="cr">${p.phk === 'near' ? 'Fotografía de la zona de ' + esc(p.phn) + ' · ' : ''}${esc(ph.t)}<br>${ph.au ? esc(ph.au) + ' · ' : ''}${esc(ph.li)} · <a href="${esc(ph.u)}" target="_blank" rel="noopener">Wikimedia Commons</a></div></div>`;
+  } else {
+    phHTML = `<div class="ph" id="cardPh" role="button" tabindex="0" aria-label="Abrir el modelo 3D de ${esc(p.n)}"><span class="go3d"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg>Ver en 3D</span><div class="cr">Relieve del entorno (no hay fotografía libre de esta cima)</div></div>`;
+  }
+  const huts = (p.huts || []).map(h => `${esc(h.n)}${h.e ? ' (' + fmtM(h.e) + ' m)' : ''} · ${fmtKm(h.d)}`).join('<br>');
+  const a2 = p.a2 ? `<div class="a2">Cartografía actual (OpenStreetMap): ${fmtM(p.a2)} m</div>` : '';
+  card.innerHTML = `<button class="xclose" id="cardX" aria-label="Cerrar ficha"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <div class="card-scroll">${phHTML}
+    <div class="cbody">
+      <div class="chead"><h3>${esc(p.n)}</h3><div class="alt">${fmtM(p.a)}<small>m</small></div>
+        ${p.alts && p.alts.length ? `<div class="aka">${esc(p.alts.slice(0, 3).join(' · '))}</div>` : ''}${a2}</div>
+      <div class="badges">
+        <span class="badge ${p.c ? 'pr' : 'sc'}">${p.c ? 'Tresmil principal' : 'Tresmil secundario'}</span>
+        <span class="badge">${esc(z)}</span>
+        ${region ? `<span class="badge">${esc(region)}</span>` : ''}
+        <span class="badge">N.º ${p.rank} de ${A.peaks.length}</span>
+      </div>
+      ${p.note ? `<div class="pnote">${esc(p.note)}</div>` : ''}
+      <dl class="facts">
+        ${valleys.length ? `<dt>Valles</dt><dd>${valleys.map(esc).join(' · ')}</dd>` : ''}
+        <dt>Coordenadas</dt><dd><span id="cardLL">${fmtLat(p.lat)}, ${fmtLon(p.lon)}</span><button id="cardCopy">Copiar</button></dd>
+        ${huts ? `<dt>Refugios</dt><dd>${huts}</dd>` : ''}
+      </dl>
+      <div class="sect">Rutas de acceso</div>
+      ${(p.r || []).map(rid => routeHTML(p, rid)).join('')}
+      <button class="cta" id="card3d"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg>Ver el pico en 3D</button>
+      <div class="disc">Información orientativa. Glaciares, neveros y pasos cambian cada temporada: consulta guías y el estado de la montaña antes de salir.</div>
+    </div></div>`;
+  if (!ph) $('#cardPh').prepend(reliefThumb(p));
+  card.hidden = false;
+  card.scrollTop = 0;
+  const go = () => open3D(p);
+  $('#cardPh').onclick = go;
+  $('#cardPh').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } };
+  $('#card3d').onclick = go;
+  $('#cardX').onclick = closeCard;
+  $('#cardCopy').onclick = async () => {
+    const t = `${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`;
+    try { await navigator.clipboard.writeText(t); $('#cardCopy').textContent = 'Copiado'; }
+    catch { const r = document.createRange(); r.selectNodeContents($('#cardLL')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $('#cardCopy').textContent = 'Seleccionado'; }
+    setTimeout(() => { const b = $('#cardCopy'); if (b) b.textContent = 'Copiar'; }, 1600);
+  };
+  positionCard();
+}
+function positionCard() {
+  if (card.hidden || !A.sel) return;
+  if (window.innerWidth <= 760) { card.style.left = ''; card.style.top = ''; return; }
+  const [x, y] = w2s(A.sel.x, A.sel.y), v = A.view;
+  const cw = card.offsetWidth, ch = card.offsetHeight;
+  let left = x + 26;
+  const minL = !$('#side').classList.contains('collapsed') ? 356 : 12;
+  if (left + cw > v.W - 12) left = x - 26 - cw;
+  left = clamp(left, minL, v.W - cw - 12);
+  const top = clamp(y - ch * 0.42, 12, v.H - ch - 12);
+  card.style.left = left + 'px'; card.style.top = top + 'px';
+}
+function selectPeak(p, o = {}) {
+  A.sel = p; hideTip();
+  openCard(p);
+  document.querySelectorAll('.pk.on').forEach(e => e.classList.remove('on'));
+  const row = $(`.pk[data-id="${p.id}"]`); if (row) { row.classList.add('on'); if (o.scroll) row.scrollIntoView({ block: 'nearest' }); }
+  try { history.replaceState(null, '', '#' + p.id); } catch { }
+  if (o.fly) {
+    const v = A.view, res = Math.min(v.res, 12);
+    const wide = window.innerWidth > 760;
+    const offX = wide ? (card.offsetWidth / 2 + 10) * res : 0, offY = wide ? 0 : v.H * 0.22 * res;
+    flyTo(p.x + offX * 0.55, p.y + offY, res);
+  }
+  invalidate();
+}
+function closeCard() {
+  A.sel = null; card.hidden = true;
+  document.querySelectorAll('.pk.on').forEach(e => e.classList.remove('on'));
+  try { history.replaceState(null, '', location.pathname + location.search); } catch { }
+  invalidate();
+}
+
+// ------------------------------------------------------------------ controls
+function initUI() {
+  VALLEY_NAME = Object.fromEntries(V.valleys.map(v => [v.id, v.n]));
+  for (const p of A.peaks) p._s = peakSearchText(p);
+  const nP = A.peaks.filter(p => p.c).length;
+  $('#stTotal').textContent = A.peaks.length; $('#stPri').textContent = nP; $('#stSec').textContent = A.peaks.length - nP;
+  const zs = $('#fZone');
+  for (const z of ZONE_ORDER) { const o = document.createElement('option'); o.value = z; o.textContent = D.zones[z].n; zs.appendChild(o); }
+  const chip = (id, key) => $(id).onclick = () => { A.filt[key] = !A.filt[key]; $(id).setAttribute('aria-pressed', A.filt[key]); applyFilters(); };
+  chip('#fPri', 'pri'); chip('#fSec', 'sec'); chip('#fFr', 'fr');
+  zs.onchange = () => { A.filt.zone = zs.value; applyFilters(); if (zs.value) fitVisible(); };
+  $('#fSort').onchange = e => { A.filt.sort = e.target.value; renderList(); };
+  let qt = 0;
+  $('#q').oninput = e => { clearTimeout(qt); qt = setTimeout(() => { A.filt.q = e.target.value; applyFilters(); }, 120); };
+  $('#q').onkeydown = e => {
+    if (e.key === 'Enter') { const first = $('.pk'); if (first) selectPeak(A.byId[first.dataset.id], { fly: true }); }
+  };
+  $('#list').onclick = e => { const b = e.target.closest('.pk'); if (b) selectPeak(A.byId[b.dataset.id], { fly: true }); };
+  $('#fit').onclick = fitVisible;
+  const side = $('#side');
+  $('#sideToggle').onclick = () => { side.classList.toggle('collapsed'); $('#sideToggle').setAttribute('aria-expanded', !side.classList.contains('collapsed')); setTimeout(positionCard, 300); };
+  if (window.innerWidth <= 760) side.classList.add('collapsed');
+  $('#layersMin').onclick = () => $('#layers').classList.toggle('min');
+  $('#legMin').onclick = () => $('#legend').classList.toggle('min');
+  if (window.innerWidth <= 760) $('#layers').classList.add('min');
+  const mode = m => { A.opt.mode = m; $('#mNat').setAttribute('aria-pressed', m === 0); $('#mHyp').setAttribute('aria-pressed', m === 1); drawRamp(); invalidate(); };
+  $('#mNat').onclick = () => mode(0); $('#mHyp').onclick = () => mode(1);
+  const tog = (id, key) => $(id).onchange = e => { A.opt[key] = e.target.checked; invalidate(); };
+  tog('#lCont', 'contours'); tog('#lVal', 'valleys'); tog('#lWat', 'water'); tog('#lPla', 'places'); tog('#lRoad', 'roads'); tog('#lLab', 'labels');
+  const dirs = ['Norte', 'Noreste', 'Este', 'Sureste', 'Sur', 'Suroeste', 'Oeste', 'Noroeste'];
+  $('#sunAz').oninput = e => { A.opt.sunAz = +e.target.value; $('#sunTxt').textContent = dirs[Math.round(A.opt.sunAz / 45) % 8]; invalidate(); };
+  drawRamp();
+  applyFilters();
+}
+function drawRamp() {
+  const stops = A.opt.mode === 1
+    ? [[300, '#8fb07d'], [700, '#a8bf87'], [1100, '#c9cf99'], [1500, '#ded6a3'], [1900, '#e3cc9e'], [2300, '#d6b894'], [2650, '#c7b09e'], [2950, '#d4ccc4'], [3150, '#eae8e5'], [3400, '#fcfcff']]
+    : [[300, '#90a87e'], [700, '#87a26c'], [1100, '#7f9a63'], [1500, '#8ea36a'], [1900, '#aab77c'], [2300, '#c0c08b'], [2650, '#cbc3aa'], [2950, '#d6d1c6'], [3150, '#e6e4df'], [3400, '#f7f9fb']];
+  const g = stops.map(([h, c]) => `${c} ${((h - 300) / 3100 * 100).toFixed(1)}%`).join(',');
+  $('#ramp').style.background = `linear-gradient(90deg,${g})`;
+}
+
+// ------------------------------------------------------------------ hi-res worker
+function baseAt(x, y) {
+  const W = G.base.W, H = G.base.H;
+  const lx = clamp(x / G.base.cx - 0.5, 0, W - 1.001), ly = clamp(y / G.base.cy - 0.5, 0, H - 1.001);
+  const ix = Math.floor(lx), iy = Math.floor(ly), fx = lx - ix, fy = ly - iy;
+  const a = BASEH[iy * W + ix], b = BASEH[iy * W + ix + 1], c = BASEH[(iy + 1) * W + ix], e = BASEH[(iy + 1) * W + ix + 1];
+  return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + e * fx) * fy;
+}
+// feather hi-res tiles that border uncovered areas into the base DEM (no seams).
+// flat: Int16Array, elevation × 4 (0.25 m steps), 132×132 per tile
+function featherHiRes(flat) {
+  const tiles = G.hires.tiles, TS = 132, F = 26;
+  const have = new Set(tiles.map(([x, y]) => x + '_' + y));
+  for (let i = 0; i < tiles.length; i++) {
+    const [tx, ty] = tiles[i];
+    const miss = [];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && !have.has((tx + dx) + '_' + (ty + dy))) miss.push([dx, dy]);
+    if (!miss.length) continue;
+    const o = i * TS * TS;
+    for (let r = 0; r < TS; r++) for (let c = 0; c < TS; c++) {
+      const lx = c - 2 + 0.5, ly = r - 2 + 0.5;   // cell centre in tile cells
+      let d = 1e9;
+      for (const [dx, dy] of miss) {
+        const ddx = dx < 0 ? lx : dx > 0 ? 128 - lx : 0, ddy = dy < 0 ? ly : dy > 0 ? 128 - ly : 0;
+        const dd = (dx && dy) ? Math.hypot(Math.max(ddx, 0), Math.max(ddy, 0)) : (dx ? ddx : ddy);
+        if (dd < d) d = dd;
+      }
+      if (d >= F) continue;
+      const w = smooth(clamp(d / F, 0, 1));
+      const x = (tx * 128 + lx) * G.hires.cx, y = (ty * 128 + ly) * G.hires.cy;
+      flat[o + r * TS + c] = Math.round(lerp(baseAt(x, y) * 4, flat[o + r * TS + c], w));
+    }
+  }
+}
+function setupHiRes(flat) {   // flat: decoded + feathered tiles
+  const gl = GLR.gl;
+  const tiles = G.hires.tiles, n = tiles.length, TS = 132, TT = TS * TS;
+  const maxT = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), 4096);
+  const cols = Math.min(31, Math.floor(maxT / TS)), maxRows = Math.floor(maxT / TS);
+  const rowsAll = Math.ceil(n / cols);
+  const layers = Math.ceil(rowsAll / maxRows), rows = Math.ceil(rowsAll / layers), per = cols * rows;
+  GLR.atlasArray(cols * TS, rows * TS, layers);
+  const tmp = new Float32Array(TT), H2 = TS >> 1, half = new Float32Array(H2 * H2);
+  const slot = new Map();
+  for (let i = 0; i < n; i++) {
+    const [tx, ty] = tiles[i]; slot.set(tx + '_' + ty, i);
+    const L = Math.floor(i / per), k = i - L * per, o = i * TT;
+    for (let j = 0; j < TT; j++) tmp[j] = flat[o + j] * 0.25 - 2048;
+    for (let r = 0; r < H2; r++) for (let c = 0; c < H2; c++) {
+      const q = 2 * r * TS + 2 * c;
+      half[r * H2 + c] = 0.25 * (tmp[q] + tmp[q + 1] + tmp[q + TS] + tmp[q + TS + 1]);
+    }
+    GLR.atlasTile(L, (k % cols) * TS, Math.floor(k / cols) * TS, TS, TS, tmp, half);
+  }
+  const ntx = Math.ceil(EXT_W / (128 * G.hires.cx)) + 1, nty = Math.ceil(EXT_H / (128 * G.hires.cy)) + 1;
+  const idx = new Uint16Array(ntx * nty);
+  for (let i = 0; i < n; i++) { const [tx, ty] = tiles[i]; if (tx < ntx && ty < nty) idx[ty * ntx + tx] = i + 1; }
+  GLR.texture('index', ntx, nty, gl.R16UI, gl.RED_INTEGER, gl.UNSIGNED_SHORT, idx, 'nearest');
+  GLR.atlasCols = cols; GLR.atlasPer = per; GLR.indexW = ntx; GLR.indexH = nty; GLR.hasHi = 1;
+  HI = { data: flat, slot };
+  invalidate();
+}
+// hi-res streams are either inline (single-file build) or separate scripts (web build)
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.async = true;
+    s.onload = res; s.onerror = () => rej(new Error('No se pudo cargar ' + src));
+    document.head.appendChild(s);
+  });
+}
+async function hiStreams() {
+  if (D.demHi) return D.demHi;
+  const files = D.hiFiles || [];
+  await Promise.all(files.map(loadScript));
+  const s = window.PYR_HI || [];
+  if (!files.length || s.length !== files.length || s.some(x => !x)) throw new Error('Relieve de 10 m incompleto');
+  return s;
+}
+let HI_FAIL = false;
+async function startHiRes() {
+  let streams;
+  try { streams = await hiStreams(); }
+  catch (err) { console.warn(err); HI_FAIL = true; return; }
+  const job = { streams, n: G.hires.tiles.length, G: { base: G.base, hires: G.hires }, base: BASEH.slice() };
+  // decoding + edge feathering run off the main thread
+  const work = `${DECODE_SRC}
+const clamp = ${clamp.toString()}, lerp = ${lerp.toString()}, smooth = ${smooth.toString()};
+let G = null, BASEH = null;
+${baseAt.toString()}
+${featherHiRes.toString()}
+${decodeHiStreams.toString()}
+onmessage = (ev) => {
+  const d = ev.data;
+  G = d.G; BASEH = d.base;
+  const out = decodeHiStreams(d.streams, d.n);
+  featherHiRes(out);
+  postMessage(out, [out.buffer]);
+};`;
+  const mainThread = () => {
+    const out = decodeHiStreams(job.streams, job.n);
+    featherHiRes(out);
+    setupHiRes(out);
+  };
+  try {
+    const w = new Worker(URL.createObjectURL(new Blob([work], { type: 'text/javascript' })));
+    w.onmessage = e => { setupHiRes(e.data); w.terminate(); };
+    w.onerror = e => { e.preventDefault(); w.terminate(); setTimeout(mainThread, 30); };
+    w.postMessage(job, [job.base.buffer]);
+  } catch (err) { setTimeout(mainThread, 30); }
+}
+// decode the hi-res streams into one Int16Array (elevation × 4), 132×132 per tile
+function decodeHiStreams(streams, n) {
+  const out = new Int16Array(n * 17424);
+  let o = 0;
+  for (const d of streams) {
+    const nctx = (d.h.act.length + 1) * (d.h.eth.length + 1);
+    const T = parseTables(b64ToBytes(d.t), nctx, 256, true);
+    const dims = []; for (let i = 0; i < d.n; i++) dims.push([132, 132]);
+    const arrs = decodeDEM(d.h, T, b64ToBytes(d.e), b64ToBytes(d.p), dims);
+    for (let i = 0; i < arrs.length; i++) {
+      const f = dequant(arrs[i], 132, 132, d.h.Q, 2);
+      for (let k = 0; k < 17424; k++) out[o + k] = Math.round(f[k] * 4);
+      o += 17424; arrs[i] = null;
+    }
+  }
+  return out;
+}
+function hiReady() { return !!HI; }
+function waitHi() { return new Promise(res => { const t = () => (HI || HI_FAIL) ? res() : setTimeout(t, 80); t(); }); }
+
+// ------------------------------------------------------------------ boot
+async function boot() {
+  try {
+    setLoad('Descomprimiendo el relieve…', 0.06); await tick();
+    const hb = D.demBase.h, nb = (hb.act.length + 1) * (hb.eth.length + 1);
+    const qb = decodeDEM(hb, parseTables(b64ToBytes(D.demBase.t), nb, 256, true), b64ToBytes(D.demBase.e), b64ToBytes(D.demBase.p), [[G.base.H, G.base.W]])[0];
+    BASEH = dequant(qb, G.base.W, G.base.H, hb.Q, 2);
+    setLoad('Cobertura del suelo…', 0.4); await tick();
+    const lcls = decodeClasses(D.lc.h, parseTables(b64ToBytes(D.lc.t), 1331, 11, false), b64ToBytes(D.lc.p));
+    LCLS = lcls;
+    setLoad('Ríos, lagos, glaciares y valles…', 0.52); await tick();
+    V = prepVectors(JSON.parse(new TextDecoder().decode(await inflateBytes(b64ToBytes(D.vec)))));
+    setLoad('Preparando el sombreado…', 0.64); await tick();
+    GLR = new ReliefGL($('#gl'));
+    ctx = ov.getContext('2d');
+    const gl = GLR.gl, W = G.base.W, H = G.base.H;
+    GLR.elevTexture('base', BASEH, W, H);
+    { const hc = D.ctx.h, nc = (hc.act.length + 1) * (hc.eth.length + 1);
+      const qc = decodeDEM(hc, parseTables(b64ToBytes(D.ctx.t), nc, 256, true), b64ToBytes(D.ctx.e), b64ToBytes(D.ctx.p), [[D.ctx.H, D.ctx.W]])[0];
+      const fc = new Float32Array(qc.length); for (let i = 0; i < qc.length; i++) fc[i] = qc[i] * hc.Q;
+      GLR.elevTexture('ctx', fc, D.ctx.W, D.ctx.H); }
+    GLR.texture('ao', W, H, gl.R8, gl.RED, gl.UNSIGNED_BYTE, makeAO(BASEH, W, H), 'linear', 'gen');
+    GLR.texture('lc', W, H, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, makeLC(lcls, W, H), 'linear', 'gen');
+    const vt = makeValleyTint(V.valleys);
+    GLR.texture('val', vt.W, vt.H, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, vt.cv, 'linear', 'gen');
+    MASK.lakes = GLR.polyBuffer(V.lakes.flat());
+    MASK.ice = GLR.polyBuffer(V.glaciers.flat());
+    setLoad('Situando los tresmiles…', 0.86); await tick();
+    initUI();
+    setupInput();
+    new ResizeObserver(() => { resize(); positionCard(); }).observe(mapEl);
+    resize();
+    fitAll(false);
+    render();
+    const fontsDone = Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 2500))]);
+    fontsDone.then(() => invalidate());
+    setLoad('Listo', 1);
+    setTimeout(() => $('#loader').classList.add('done'), 120);
+    const h = decodeURIComponent(location.hash.slice(1));
+    if (h && A.byId[h]) setTimeout(() => selectPeak(A.byId[h], { fly: true, scroll: true }), 300);
+    setTimeout(startHiRes, 200);
+  } catch (err) {
+    console.error(err);
+    $('#ldErr').hidden = false;
+    $('#ldErr').textContent = 'No se ha podido iniciar el mapa: ' + (err && err.message ? err.message : err) + '. Necesita un navegador con WebGL2 (Chrome, Edge, Firefox o Safari recientes).';
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  3D peak diorama (Three.js, loaded on demand from cdnjs)
+//  Circular cut-out of the 10 m terrain around the summit, CPU-baked sun
+//  shadows + ambient occlusion, land-cover albedo, rock strata walls.
+// ---------------------------------------------------------------------------
+const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.170.0/three.module.min.js';
+const V3 = { THREE: null, open: false, renderer: null };
+const R3 = 2050, CELLX = () => G.hires.cx, CELLY = () => G.hires.cy;
+
+async function loadThree() {
+  if (!V3.THREE) V3.THREE = await import(THREE_URL);
+  return V3.THREE;
+}
+function sunVector(hour, winter) {
+  const lat = 42.7 * Math.PI / 180, dec = (winter ? -20 : 21) * Math.PI / 180, H = (hour - 12) * 15 * Math.PI / 180;
+  const sinEl = Math.sin(lat) * Math.sin(dec) + Math.cos(lat) * Math.cos(dec) * Math.cos(H);
+  const el = Math.asin(sinEl);
+  let az = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(lat) - Math.tan(dec) * Math.cos(lat)); // from south, west positive
+  az = az + Math.PI; // from north, clockwise (east = 90°)
+  const elc = Math.max(el, 0.035);
+  // three: x east, y up, z south
+  return { v: [Math.sin(az) * Math.cos(elc), Math.sin(elc), -Math.cos(az) * Math.cos(elc)], el, az };
+}
+
+// ------------------------------------------------------------------ terrain sampling
+function gatherGrid(p) {
+  const cx = CELLX(), cy = CELLY();
+  const n = Math.ceil(R3 / Math.min(cx, cy)) + 2;
+  const N = 2 * n + 1;
+  const gx0 = Math.floor(p.x / cx), gy0 = Math.floor(p.y / cy);
+  const h = new Float32Array(N * N);
+  let hmin = Infinity, hmax = -Infinity;
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const gx = gx0 - n + i, gy = gy0 - n + j;
+    const x = (gx + 0.5) * cx, y = (gy + 0.5) * cy;
+    const v = elevAt(x, y);
+    h[j * N + i] = v;
+    const dx = x - p.x, dy = y - p.y;
+    if (dx * dx + dy * dy < R3 * R3) { if (v < hmin) hmin = v; if (v > hmax) hmax = v; }
+  }
+  // local offsets of cell centres relative to the peak
+  const ox = (gx0 - n + 0.5) * cx - p.x, oy = (gy0 - n + 0.5) * cy - p.y;
+  return { h, N, cx, cy, ox, oy, hmin, hmax };
+}
+function makeSampler(g) {
+  return (x, z) => { // local metres -> elevation (bilinear)
+    const fx = (x - g.ox) / g.cx, fy = (z - g.oy) / g.cy;
+    const i = clamp(Math.floor(fx), 0, g.N - 2), j = clamp(Math.floor(fy), 0, g.N - 2);
+    const tx = clamp(fx - i, 0, 1), ty = clamp(fy - j, 0, 1), N = g.N, h = g.h;
+    return (h[j * N + i] * (1 - tx) + h[j * N + i + 1] * tx) * (1 - ty) + (h[(j + 1) * N + i] * (1 - tx) + h[(j + 1) * N + i + 1] * tx) * ty;
+  };
+}
+function bakeNormalsAO(g) {
+  const { N, h, cx, cy } = g, out = new Uint8Array(N * N * 4);
+  // AO: horizon angles in 8 directions, every 2nd cell, up to ~420 m
+  const dirs = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
+  const steps = [1, 2, 3, 5, 8, 12, 17, 24, 32, 42];
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const k = j * N + i;
+    const il = Math.max(i - 1, 0), ir = Math.min(i + 1, N - 1), ju = Math.max(j - 1, 0), jd = Math.min(j + 1, N - 1);
+    const dhx = (h[j * N + ir] - h[j * N + il]) / ((ir - il) * cx), dhz = (h[jd * N + i] - h[ju * N + i]) / ((jd - ju) * cy);
+    let nx = -dhx, ny = 1, nz = -dhz; const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
+    out[k * 4] = (nx * 0.5 + 0.5) * 255; out[k * 4 + 1] = (ny * 0.5 + 0.5) * 255; out[k * 4 + 2] = (nz * 0.5 + 0.5) * 255;
+  }
+  const H2 = Math.ceil(N / 2), aoLow = new Float32Array(H2 * H2);
+  for (let j = 0; j < H2; j++) for (let i = 0; i < H2; i++) {
+    const ci = Math.min(i * 2, N - 1), cj = Math.min(j * 2, N - 1), h0 = h[cj * N + ci];
+    let occ = 0;
+    for (const [dx, dy] of dirs) {
+      let maxT = 0; const dl = Math.hypot(dx * cx, dy * cy);
+      for (const s of steps) {
+        const ii = ci + dx * s, jj = cj + dy * s;
+        if (ii < 0 || jj < 0 || ii >= N || jj >= N) break;
+        const t = (h[jj * N + ii] - h0) / (s * dl);
+        if (t > maxT) maxT = t;
+      }
+      occ += Math.atan(maxT) / (Math.PI / 2);
+    }
+    aoLow[j * H2 + i] = 1 - occ / dirs.length;
+  }
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const a = aoLow[Math.min(j >> 1, H2 - 1) * H2 + Math.min(i >> 1, H2 - 1)];
+    out[(j * N + i) * 4 + 3] = clamp(Math.pow(a, 1.4) * 255, 0, 255);
+  }
+  return out;
+}
+function bakeShadow(g, sun, exag) {
+  // full-resolution sun-visibility map (bilinear terrain lookups, soft penumbra, light blur)
+  const { N, h, cx, cy } = g, S = N, vis = new Float32Array(S * S);
+  const [sx, sy, sz] = sun.v;
+  const horiz = Math.hypot(sx, sz) || 1e-6;
+  const tanEl = sy / horiz / exag;
+  const dx = sx / horiz, dz = sz / horiz;
+  const hmax = g.hmax;
+  for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
+    const h0 = h[j * N + i] + 1.0;
+    const x = i * cx, z = j * cy;
+    let lit = 1;
+    for (let d = 8; d < 4300; d += 8 * (1 + d / 700)) {
+      const fi = (x + dx * d) / cx, fj = (z + dz * d) / cy;
+      if (fi < 0 || fj < 0 || fi >= N - 1 || fj >= N - 1) break;
+      const ray = h0 + d * tanEl;
+      if (ray > hmax + 5) break;
+      const ii = fi | 0, jj = fj | 0, ax = fi - ii, ay = fj - jj, k = jj * N + ii;
+      const th = (h[k] * (1 - ax) + h[k + 1] * ax) * (1 - ay) + (h[k + N] * (1 - ax) + h[k + N + 1] * ax) * ay;
+      const pen = (ray - th) / (d * 0.028 + 1.2);
+      if (pen < lit) { lit = pen; if (lit <= 0) { lit = 0; break; } }
+    }
+    vis[j * S + i] = lit;
+  }
+  const out = new Uint8Array(S * S * 4);
+  for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
+    let s = 0, w = 0;
+    for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) {
+      const ii = i + a, jj = j + b; if (ii < 0 || jj < 0 || ii >= S || jj >= S) continue;
+      const ww = (a === 0 ? 2 : 1) * (b === 0 ? 2 : 1); s += vis[jj * S + ii] * ww; w += ww;
+    }
+    out[(j * S + i) * 4] = s / w * 255; out[(j * S + i) * 4 + 3] = 255;
+  }
+  return { data: out, S };
+}
+function bakeAlbedo(g, p) {
+  const { N, h, cx, cy } = g;
+  const out = new Uint8Array(N * N * 4);
+  // rasterise lakes + glaciers into a canvas in grid space
+  const cv = document.createElement('canvas'); cv.width = N; cv.height = N;
+  const c2 = cv.getContext('2d');
+  const tx = (x) => (x - p.x - g.ox) / cx + 0.5, ty = (y) => (y - p.y - g.oy) / cy + 0.5;
+  const R2 = R3 + 600;
+  const near = (ring) => { for (let i = 0; i < ring.length; i += 8) if (Math.abs(ring[i] - p.x) < R2 && Math.abs(ring[i + 1] - p.y) < R2) return true; return false; };
+  const fillPolys = (polys, color) => {
+    c2.fillStyle = color;
+    for (const poly of polys) {
+      if (!near(poly[0])) continue;
+      const path = new Path2D();
+      for (const ring of poly) { for (let i = 0; i < ring.length; i += 2) { const X = tx(ring[i]), Y = ty(ring[i + 1]); i ? path.lineTo(X, Y) : path.moveTo(X, Y); } path.closePath(); }
+      c2.fill(path, 'evenodd');
+    }
+  };
+  fillPolys(V.glaciers, 'rgb(0,255,0)');
+  fillPolys(V.lakes, 'rgb(255,0,0)');
+  const m = c2.getImageData(0, 0, N, N).data;
+  const W = G.base.W, Hb = G.base.H;
+  let seed = 99;
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const k = j * N + i;
+    const x = p.x + g.ox + i * cx, y = p.y + g.oy + j * cy;
+    // land cover class colour, bilinear on the 50 m grid
+    const fx = clamp(x / G.base.cx - 0.5, 0, W - 1.001), fy = clamp(y / G.base.cy - 0.5, 0, Hb - 1.001);
+    const ix = fx | 0, iy = fy | 0, ax = fx - ix, ay = fy - iy;
+    let r = 0, gg = 0, b = 0, forest = 0;
+    const acc = (ii, jj, w) => { const c = LCC[LCLS[jj * W + ii]] || LCC[6]; r += c[0] * w; gg += c[1] * w; b += c[2] * w; forest += c[3] * w; };
+    acc(ix, iy, (1 - ax) * (1 - ay)); acc(ix + 1, iy, ax * (1 - ay)); acc(ix, iy + 1, (1 - ax) * ay); acc(ix + 1, iy + 1, ax * ay);
+    const hh = h[k];
+    // slope from neighbours
+    const il = Math.max(i - 1, 0), ir = Math.min(i + 1, N - 1), ju = Math.max(j - 1, 0), jd = Math.min(j + 1, N - 1);
+    const sl = Math.hypot((h[j * N + ir] - h[j * N + il]) / ((ir - il) * cx), (h[jd * N + i] - h[ju * N + i]) / ((jd - ju) * cy));
+    const rockK = smooth(clamp((sl - 0.7) / 0.6, 0, 1));
+    const rock = hh > 2500 ? [150, 147, 143] : [140, 132, 121];
+    r = lerp(r, rock[0], rockK * 0.85); gg = lerp(gg, rock[1], rockK * 0.85); b = lerp(b, rock[2], rockK * 0.85);
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    const n = 1 + (((seed >> 8) & 255) / 255 - 0.5) * 0.06;
+    let mat = 0;
+    if (m[k * 4 + 1] > 100) { r = 236; gg = 242; b = 248; mat = 2; }
+    if (m[k * 4] > 100) { r = 64; gg = 124; b = 158; mat = 1; }
+    out[k * 4] = clamp(r * n, 0, 255); out[k * 4 + 1] = clamp(gg * n, 0, 255); out[k * 4 + 2] = clamp(b * n, 0, 255);
+    out[k * 4 + 3] = mat === 1 ? 255 : mat === 2 ? 170 : clamp(forest * 80, 0, 80);
+  }
+  return out;
+}
+let LCLS = null;
+const LCC = { // land cover -> 3D albedo (sRGB) + forest
+  0: [146, 144, 138, 0], 1: [70, 94, 54, 1], 2: [112, 126, 74, 0.4], 3: [124, 142, 80, 0], 4: [170, 164, 112, 0],
+  5: [164, 146, 130, 0], 6: [158, 153, 144, 0], 7: [238, 242, 248, 0], 8: [64, 124, 158, 0], 9: [112, 132, 96, 0], 10: [140, 142, 122, 0]
+};
+
+// ------------------------------------------------------------------ shaders
+const TERR_VS = `
+attribute float aH;
+varying vec3 vW; varying vec2 vUv; varying float vH;
+uniform float uR; uniform vec4 uGrid;
+void main(){
+  vH = aH;
+  vUv = (position.xz - uGrid.xy) / uGrid.zw;
+  vec4 w = modelMatrix * vec4(position, 1.0);
+  vW = w.xyz;
+  gl_Position = projectionMatrix * viewMatrix * w;
+}`;
+const NOISE = `
+float hash3(vec3 p){ p = fract(p * 0.3183099 + .1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float vnoise(vec3 x){ vec3 i = floor(x), f = fract(x); f = f*f*(3.0-2.0*f);
+  return mix(mix(mix(hash3(i+vec3(0,0,0)),hash3(i+vec3(1,0,0)),f.x), mix(hash3(i+vec3(0,1,0)),hash3(i+vec3(1,1,0)),f.x),f.y),
+             mix(mix(hash3(i+vec3(0,0,1)),hash3(i+vec3(1,0,1)),f.x), mix(hash3(i+vec3(0,1,1)),hash3(i+vec3(1,1,1)),f.x),f.y), f.z); }
+float fbm(vec3 p){ float a = .5, s = 0.; for (int i = 0; i < 4; i++){ s += a * vnoise(p); p *= 2.03; a *= .5; } return s; }
+vec3 bump(vec3 n, vec3 pos, float hgt){
+  vec3 dpdx = dFdx(pos), dpdy = dFdy(pos);
+  float dhdx = dFdx(hgt), dhdy = dFdy(hgt);
+  vec3 r1 = cross(dpdy, n), r2 = cross(n, dpdx);
+  float det = dot(dpdx, r1);
+  vec3 grad = sign(det) * (dhdx * r1 + dhdy * r2);
+  return normalize(abs(det) * n - grad);
+}`;
+const TERR_FS = `
+uniform sampler2D tAlb, tNrm, tShd;
+uniform vec3 uSun; uniform float uR, uExag, uCont, uWinter, uSunUp, uScale;
+varying vec3 vW; varying vec2 vUv; varying float vH;
+${NOISE}
+void main(){
+  if (length(vW.xz) > uR) discard;
+  vec4 nm = texture2D(tNrm, vUv);
+  vec3 n0 = normalize(nm.xyz * 2.0 - 1.0);
+  vec3 n = normalize(vec3(n0.x * uExag, n0.y, n0.z * uExag));
+  float slope = 1.0 - n0.y;
+  vec4 al = texture2D(tAlb, vUv);
+  vec3 alb = al.rgb;
+  float mat = al.a;
+  float water = step(0.9, mat), ice = step(0.55, mat) * (1.0 - water), forest = clamp(mat / 0.32, 0., 1.) * (1.0 - step(0.55, mat));
+  vec3 P = vec3(vW.x, vH, vW.z);
+  float nz = fbm(P * 0.045);
+  float nz2 = vnoise(P * 0.22);
+  // rock grain and lichen tones
+  float rockness = smoothstep(0.30, 0.55, slope) * (1.0 - water) * (1.0 - ice);
+  alb *= mix(1.0, 0.82 + 0.3 * nz2, rockness);
+  alb = mix(alb, alb * vec3(1.05, 1.0, 0.92), rockness * smoothstep(0.55, 0.8, nz) * 0.6);
+  alb *= 0.88 + 0.24 * nz;
+  float fwp = length(fwidth(vW));
+  float bh = (fbm(P * 0.11) * 7.0 + nz2 * 1.6) * (0.25 + 0.75 * rockness) * (1.0 - water) * (1.0 - smoothstep(6.0, 22.0, fwp));
+  n = bump(n, vW, bh);
+  // forests: clumpy canopy
+  alb *= mix(1.0, 0.72 + 0.5 * smoothstep(0.35, 0.75, vnoise(P * 0.12)), forest);
+  // winter snow
+  float snowLine = 1450.0 + 260.0 * nz;
+  float snow = uWinter * smoothstep(snowLine, snowLine + 180.0, vH) * (1.0 - smoothstep(0.42, 0.62, slope + 0.12 * (nz2 - 0.5))) * (1.0 - water);
+  snow = max(snow, ice);
+  alb = mix(alb, vec3(0.95, 0.965, 0.985), snow);
+  // lighting
+  float sh = texture2D(tShd, vUv).r;
+  float ao = nm.a;
+  float ndl = dot(n, uSun);
+  float wrap = max((ndl + 0.12) / 1.12, 0.0);
+  vec3 sunC = mix(vec3(1.0, 0.68, 0.46), vec3(1.0, 0.96, 0.89), smoothstep(0.02, 0.45, uSunUp)) * 0.9;
+  vec3 sky = vec3(0.58, 0.68, 0.85), gnd = vec3(0.48, 0.44, 0.38);
+  vec3 amb = mix(gnd, sky, n.y * 0.5 + 0.5) * (0.26 + 0.74 * ao);
+  vec3 col = alb * (sunC * wrap * sh * mix(0.82, 1.0, ao) + amb * 0.55);
+  // speculars: water and ice
+  vec3 V = normalize(cameraPosition - vW);
+  vec3 Hh = normalize(uSun + V);
+  vec3 nw = water > 0.5 ? vec3(0., 1., 0.) + 0.04 * vec3(nz2 - .5, 0., vnoise(P * 0.3) - .5) : n;
+  float spec = pow(max(dot(normalize(nw), Hh), 0.0), water > 0.5 ? 180.0 : 40.0) * sh;
+  col += spec * (water * 0.9 + snow * 0.18) * sunC;
+  if (water > 0.5) { float fres = pow(1.0 - max(V.y, 0.0), 3.0); col = mix(col, vec3(0.66, 0.78, 0.9), 0.25 + fres * 0.5); }
+  // contours
+  if (uCont > 0.5 && water < 0.5) {
+    float fw = max(fwidth(vH), 1e-3);
+    float d1 = abs(fract(vH / 50.0 + 0.5) - 0.5) * 50.0 / fw;
+    float d5 = abs(fract(vH / 250.0 + 0.5) - 0.5) * 250.0 / fw;
+    float l1 = 1.0 - smoothstep(0.4, 1.3, d1), l5 = 1.0 - smoothstep(0.8, 1.9, d5);
+    vec3 cc = mix(vec3(0.35, 0.2, 0.1), vec3(0.15, 0.38, 0.62), snow);
+    col = mix(col, cc, max(l1 * 0.45, l5 * 0.75) * (1.0 - smoothstep(4.0, 11.0, fw)));
+  }
+  // aerial perspective
+  float dist = length(cameraPosition - vW);
+  col = mix(col, vec3(0.80, 0.84, 0.88), smoothstep(uScale * 1.2, uScale * 7.0, dist) * 0.35);
+  gl_FragColor = vec4(col, 1.0);
+}`;
+const WALL_VS = `
+attribute float aTop;
+varying vec3 vW; varying float vDepth; varying vec3 vN;
+void main(){
+  vec4 w = modelMatrix * vec4(position, 1.0);
+  vW = w.xyz; vDepth = aTop - position.y; vN = normalize(vec3(position.x, 0.0, position.z));
+  gl_Position = projectionMatrix * viewMatrix * w;
+}`;
+const WALL_FS = `
+uniform vec3 uSun; uniform float uExag;
+varying vec3 vW; varying float vDepth; varying vec3 vN;
+${NOISE}
+void main(){
+  float d = vDepth / uExag;
+  float ang = atan(vW.z, vW.x);
+  float b = fbm(vec3(ang * 40.0, vW.y * 0.025, 1.7));
+  float band = 0.5 + 0.5 * sin(vW.y * 0.09 + b * 5.0);
+  vec3 c1 = vec3(0.56, 0.49, 0.41), c2 = vec3(0.43, 0.37, 0.31), c3 = vec3(0.64, 0.58, 0.50);
+  vec3 col = mix(mix(c2, c1, band), c3, smoothstep(0.55, 0.8, b));
+  col = mix(vec3(0.33, 0.26, 0.19), col, smoothstep(2.0, 9.0, d));     // soil
+  col *= mix(1.0, 0.62, smoothstep(40.0, 900.0, d));                      // darker with depth
+  float ndl = max(dot(vN, uSun), 0.0);
+  col *= 0.55 + 0.55 * ndl;
+  gl_FragColor = vec4(col, 1.0);
+}`;
+const PLINTH_FS = `
+uniform vec3 uSun; varying vec3 vN2; varying vec3 vW2;
+void main(){
+  float ndl = max(dot(normalize(vN2), uSun), 0.0);
+  vec3 col = vec3(0.16, 0.19, 0.22) * (0.65 + 0.5 * ndl);
+  col += vec3(0.05) * smoothstep(0.0, 1.0, vN2.y);
+  gl_FragColor = vec4(col, 1.0);
+}`;
+const PLINTH_VS = `varying vec3 vN2; varying vec3 vW2;
+void main(){ vN2 = normal; vec4 w = modelMatrix * vec4(position,1.0); vW2 = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
+const FLOOR_VS = `varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position,1.0); }`;
+const FLOOR_FS = `uniform float uR; varying vec2 vP;
+void main(){ float r = length(vP) / uR; float a = smoothstep(1.75, 0.95, r) * 0.32; gl_FragColor = vec4(0.08, 0.1, 0.12, a); }`;
+
+// ------------------------------------------------------------------ viewer
+const S3 = { scene: null, cam: null, objs: [], labels: [], peak: null, grid: null, sample: null, exag: 1, winter: false, cont: false, rotate: true, hour: 16.5, needs: true, raf: 0 };
+const orbit = { target: [0, 0, 0], dist: 7000, az: -0.6, pol: 1.0, vaz: 0, vpol: 0, panx: 0, pany: 0, idle: 0 };
+
+async function open3D(p) {
+  const el = $('#v3d');
+  el.hidden = false; V3.open = true;
+  $('#v3load').hidden = false; $('#v3load').textContent = 'Cargando el modelo 3D…';
+  $('#v3name').innerHTML = `${esc(p.n)}<span>${fmtM(p.a)} m</span>`;
+  $('#v3eye').textContent = D.zones[p.z].n;
+  $('#v3sub').textContent = 'Preparando el terreno…';
+  document.body.style.overflow = 'hidden';
+  try {
+    const THREE = await loadThree();
+    if (!HI) { $('#v3load').textContent = 'Descomprimiendo el relieve de alta resolución…'; await waitHi(); }
+    if (!V3.open) return;
+    build3D(THREE, p);
+    $('#v3load').hidden = true;
+    $('#v3close').focus();
+  } catch (err) {
+    console.error(err);
+    $('#v3load').textContent = 'No se ha podido cargar la vista 3D (' + (err.message || err) + '). Comprueba la conexión: la librería Three.js se descarga de cdnjs.';
+  }
+}
+function close3D() {
+  V3.open = false;
+  $('#v3d').hidden = true;
+  cancelAnimationFrame(S3.raf); S3.raf = 0;
+  disposeScene();
+  document.body.style.overflow = '';
+  const b = $('#card3d'); if (b) b.focus();
+}
+function disposeScene() {
+  for (const o of S3.objs) { o.geometry && o.geometry.dispose(); if (o.material) { for (const k in o.material.uniforms || {}) { const v = o.material.uniforms[k].value; if (v && v.isTexture) v.dispose(); } o.material.dispose(); } }
+  S3.objs = []; S3.scene = null;
+  $('#l3d').innerHTML = ''; S3.labels = [];
+}
+function build3D(THREE, p) {
+  disposeScene();
+  const canvas = $('#c3d');
+  if (!V3.renderer) {
+    V3.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+    V3.renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+    V3.renderer.setClearColor(0x000000, 0);
+    setupOrbit(canvas);
+    new ResizeObserver(() => { if (V3.open) { sizeRenderer(); S3.needs = true; } }).observe(canvas.parentElement);
+  }
+  const g = gatherGrid(p); S3.grid = g; S3.peak = p; S3.sample = makeSampler(g);
+  const scene = new THREE.Scene(); S3.scene = scene;
+  const cam = new THREE.PerspectiveCamera(30, 1, 10, 60000); S3.cam = cam;
+  const N = g.N, exag = S3.exag;
+  // textures
+  const nrm = new THREE.DataTexture(bakeNormalsAO(g), N, N, THREE.RGBAFormat, THREE.UnsignedByteType);
+  nrm.magFilter = THREE.LinearFilter; nrm.minFilter = THREE.LinearFilter; nrm.needsUpdate = true;
+  const alb = new THREE.DataTexture(bakeAlbedo(g, p), N, N, THREE.RGBAFormat, THREE.UnsignedByteType);
+  alb.magFilter = THREE.LinearFilter; alb.minFilter = THREE.LinearFilter; alb.needsUpdate = true;
+  const sun = sunVector(S3.hour, S3.winter);
+  const sh = bakeShadow(g, sun, exag);
+  const shd = new THREE.DataTexture(sh.data, sh.S, sh.S, THREE.RGBAFormat, THREE.UnsignedByteType);
+  shd.magFilter = THREE.LinearFilter; shd.minFilter = THREE.LinearFilter; shd.needsUpdate = true;
+  // terrain mesh: full grid, fragments outside the circle discarded
+  const pos = new Float32Array(N * N * 3), ah = new Float32Array(N * N);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const k = j * N + i;
+    pos[k * 3] = g.ox + i * g.cx; pos[k * 3 + 2] = g.oy + j * g.cy; ah[k] = g.h[k];
+    pos[k * 3 + 1] = (g.h[k] - g.hmin) * exag;
+  }
+  // keep only quads touching the disc
+  const idx = [];
+  const R2 = (R3 + 30) * (R3 + 30);
+  for (let j = 0; j < N - 1; j++) for (let i = 0; i < N - 1; i++) {
+    const x = g.ox + (i + 0.5) * g.cx, z = g.oy + (j + 0.5) * g.cy;
+    if (x * x + z * z > R2) continue;
+    const a = j * N + i, b = a + 1, c = a + N, d = c + 1;
+    idx.push(a, c, b, b, c, d);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('aH', new THREE.BufferAttribute(ah, 1));
+  geo.setIndex(N * N > 65535 ? new THREE.Uint32BufferAttribute(idx, 1) : new THREE.Uint16BufferAttribute(idx, 1));
+  geo.computeBoundingSphere();
+  const tmat = new THREE.ShaderMaterial({
+    vertexShader: TERR_VS, fragmentShader: TERR_FS,
+    uniforms: { tAlb: { value: alb }, tNrm: { value: nrm }, tShd: { value: shd }, uSun: { value: new THREE.Vector3(...sun.v) }, uR: { value: R3 }, uExag: { value: exag }, uCont: { value: S3.cont ? 1 : 0 }, uWinter: { value: S3.winter ? 1 : 0 }, uSunUp: { value: Math.max(sun.v[1], 0) }, uScale: { value: R3 }, uGrid: { value: new THREE.Vector4(g.ox - g.cx / 2, g.oy - g.cy / 2, g.N * g.cx, g.N * g.cy) } }
+  });
+  const terr = new THREE.Mesh(geo, tmat); scene.add(terr); S3.objs.push(terr); S3.terr = terr;
+  // walls
+  const base = -160 * exag;
+  S3.base = base;
+  const wall = buildWall(THREE, g, exag, base, sun);
+  scene.add(wall); S3.objs.push(wall); S3.wall = wall;
+  // plinth
+  const pl = new THREE.Mesh(new THREE.CylinderGeometry(R3 * 1.035, R3 * 1.06, 70, 160, 1, false),
+    new THREE.ShaderMaterial({ vertexShader: PLINTH_VS, fragmentShader: PLINTH_FS, uniforms: { uSun: { value: new THREE.Vector3(...sun.v) } } }));
+  pl.position.y = base - 35; scene.add(pl); S3.objs.push(pl); S3.plinth = pl;
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(R3 * 4.2, R3 * 4.2), new THREE.ShaderMaterial({ vertexShader: FLOOR_VS, fragmentShader: FLOOR_FS, transparent: true, depthWrite: false, uniforms: { uR: { value: R3 * 1.05 } } }));
+  fl.rotation.x = -Math.PI / 2; fl.position.y = base - 72; scene.add(fl); S3.objs.push(fl);
+  // labels
+  makeLabels(p, g, exag);
+  // camera
+  resetOrbit();
+  $('#v3sub').textContent = `Modelo de ${fmtKm(R3 * 2)} de diámetro · relieve de ${HI ? 10 : 50} m · desde ${fmtM(Math.round(g.hmin))} m`;
+  updateSunUI();
+  sizeRenderer();
+  S3.needs = true;
+  cancelAnimationFrame(S3.raf);
+  S3.last = performance.now();
+  S3.raf = requestAnimationFrame(loop3D);
+}
+function buildWall(THREE, g, exag, base, sun) {
+  const M = 1440, pos = new Float32Array((M + 1) * 2 * 3), top = new Float32Array((M + 1) * 2), idx = [];
+  for (let k = 0; k <= M; k++) {
+    const a = k / M * Math.PI * 2, x = Math.cos(a) * R3, z = Math.sin(a) * R3;
+    const ht = (S3.sample(x, z) - g.hmin) * exag + 0.6;
+    pos.set([x, ht, z], k * 6); pos.set([x, base, z], k * 6 + 3);
+    top[k * 2] = ht; top[k * 2 + 1] = ht;
+    if (k < M) { const i0 = k * 2, i1 = k * 2 + 1, i2 = k * 2 + 2, i3 = k * 2 + 3; idx.push(i0, i2, i1, i1, i2, i3); }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('aTop', new THREE.BufferAttribute(top, 1));
+  geo.setIndex(idx);
+  const mat = new THREE.ShaderMaterial({ vertexShader: WALL_VS, fragmentShader: WALL_FS, side: THREE.DoubleSide, uniforms: { uSun: { value: new THREE.Vector3(...sun.v) }, uExag: { value: exag } } });
+  return new THREE.Mesh(geo, mat);
+}
+function makeLabels(p, g, exag) {
+  const box = $('#l3d'); box.innerHTML = ''; S3.labels = [];
+  const add = (cls, html, x, y, z, ref) => { const d = document.createElement('div'); d.className = 'l3 ' + cls; d.innerHTML = html; box.appendChild(d); S3.labels.push({ el: d, x, y, z, ref, card: cls === 'card', main: cls === 'main' }); };
+  // other 3000ers inside the disc
+  const others = A.peaks.filter(q => q !== p && Math.hypot(q.x - p.x, q.y - p.y) < R3 - 60).sort((a, b) => b.a - a.a);
+  for (const q of others) {
+    const x = q.x - p.x, z = q.y - p.y;
+    add(q.c ? '' : 'sec', `${esc(q.n)}<small>${fmtM(q.a)} m</small>`, x, (S3.sample(x, z) - g.hmin) * exag, z, q);
+  }
+  for (const h of V.huts) {
+    if (h.k !== 1) continue;
+    const x = h.x - p.x, z = h.y - p.y;
+    if (Math.hypot(x, z) > R3 - 40) continue;
+    add('hut', esc(h.n), x, (S3.sample(x, z) - g.hmin) * exag, z, null);
+  }
+  add('main', `${esc(p.n)}<small>${fmtM(p.a)} m</small>`, 0, (S3.sample(0, 0) - g.hmin) * exag, 0, p);
+  const rr = R3 * 1.13;
+  for (const [t, x, z] of [['N', 0, -rr], ['E', rr, 0], ['S', 0, rr], ['O', -rr, 0]]) add('card', t, x, S3.base * 0.5, z, null);
+  for (const L of S3.labels) L.w = L.el.offsetWidth || 60;
+}
+function sizeRenderer() {
+  const c = $('#c3d'), r = c.parentElement.getBoundingClientRect();
+  V3.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  V3.renderer.setSize(r.width, r.height, false);
+  if (S3.cam) { S3.cam.aspect = r.width / Math.max(r.height, 1); S3.cam.updateProjectionMatrix(); }
+}
+function resetOrbit(top) {
+  const g = S3.grid, e = S3.exag;
+  orbit.target = [0, ((g.hmax + g.hmin) / 2 - g.hmin) * e * 0.35, 0];
+  const asp = window.innerWidth / Math.max(window.innerHeight, 1);
+  orbit.dist = R3 * (asp < 1 ? 3.9 / Math.max(asp, 0.5) : 3.75);
+  orbit.az = top ? 0 : 0.42; orbit.pol = top ? 0.02 : 0.96;
+  orbit.vaz = orbit.vpol = 0; S3.needs = true;
+}
+function setupOrbit(canvas) {
+  const ptrs = new Map(); let last = null, pinch = null, mode = 'rot';
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+  canvas.addEventListener('pointerdown', e => {
+    canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+    mode = (e.button === 2 || e.shiftKey || e.ctrlKey || e.metaKey) ? 'pan' : 'rot';
+    last = [e.clientX, e.clientY]; orbit.idle = performance.now();
+    if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), dist: orbit.dist, m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] }; }
+    stopAutoRotate();
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!ptrs.has(e.pointerId)) return;
+    ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+    if (ptrs.size === 2 && pinch) {
+      const [a, b] = [...ptrs.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      orbit.dist = clamp(pinch.dist * pinch.d / Math.max(d, 1), R3 * 0.55, R3 * 7);
+      pan(m[0] - pinch.m[0], m[1] - pinch.m[1]); pinch.m = m; S3.needs = true; return;
+    }
+    const dx = e.clientX - last[0], dy = e.clientY - last[1]; last = [e.clientX, e.clientY];
+    if (mode === 'pan') pan(dx, dy);
+    else { orbit.vaz = -dx * 0.0055; orbit.vpol = -dy * 0.0045; orbit.az += orbit.vaz; orbit.pol += orbit.vpol; }
+    orbit.idle = performance.now(); S3.needs = true;
+  });
+  const up = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; };
+  canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+  canvas.addEventListener('wheel', e => { e.preventDefault(); orbit.dist = clamp(orbit.dist * Math.exp(e.deltaY * (e.deltaMode ? 0.05 : 0.0012)), R3 * 0.55, R3 * 7); stopAutoRotate(); S3.needs = true; }, { passive: false });
+  canvas.addEventListener('dblclick', () => { resetOrbit(); });
+}
+function pan(dx, dy) {
+  const k = orbit.dist * 0.0011;
+  const ca = Math.cos(orbit.az), sa = Math.sin(orbit.az);
+  orbit.target[0] -= (dx * ca + dy * sa * Math.cos(orbit.pol)) * k;
+  orbit.target[2] -= (-dx * sa + dy * ca * Math.cos(orbit.pol)) * k;
+  const lim = R3 * 0.9, r = Math.hypot(orbit.target[0], orbit.target[2]);
+  if (r > lim) { orbit.target[0] *= lim / r; orbit.target[2] *= lim / r; }
+}
+function stopAutoRotate() { if (S3.rotate) { S3.rotate = false; $('#v3rot').setAttribute('aria-pressed', 'false'); } }
+function loop3D(t) {
+  S3.raf = requestAnimationFrame(loop3D);
+  const dt = Math.min((t - S3.last) / 1000, 0.1); S3.last = t;
+  if (!S3.scene) return;
+  if (S3.rotate) { orbit.az += dt * 0.085; S3.needs = true; }
+  else if (Math.abs(orbit.vaz) + Math.abs(orbit.vpol) > 1e-4 && performance.now() - orbit.idle > 30) {
+    orbit.az += orbit.vaz; orbit.pol += orbit.vpol; orbit.vaz *= 0.9; orbit.vpol *= 0.9; S3.needs = true;
+  }
+  orbit.pol = clamp(orbit.pol, 0.02, 1.42);
+  if (!S3.needs) return;
+  S3.needs = false;
+  const cam = S3.cam, o = orbit;
+  const sp = Math.sin(o.pol), cp = Math.cos(o.pol);
+  cam.position.set(o.target[0] + o.dist * sp * Math.sin(o.az), o.target[1] + o.dist * cp, o.target[2] + o.dist * sp * Math.cos(o.az));
+  cam.up.set(0, 1, 0);
+  cam.lookAt(o.target[0], o.target[1], o.target[2]);
+  cam.updateMatrixWorld();
+  V3.renderer.render(S3.scene, cam);
+  placeLabels();
+  $('#compass').style.transform = `rotate(${(o.az * 180 / Math.PI).toFixed(1)}deg)`;
+}
+function terrainY(x, z) { return (S3.sample(x, z) - S3.grid.hmin) * S3.exag; }
+function placeLabels() {
+  const T = V3.THREE, cam = S3.cam, c = $('#c3d'), W = c.clientWidth, H = c.clientHeight;
+  const v = new T.Vector3();
+  const cp = cam.position;
+  const placed = [];
+  // main label first, then by altitude order already
+  const order = [...S3.labels].sort((a, b) => b.main - a.main);
+  for (const L of order) {
+    v.set(L.x, L.y, L.z).project(cam);
+    if (v.z > 1 || v.x < -1.2 || v.x > 1.2 || v.y < -1.2 || v.y > 1.2) { L.el.style.opacity = 0; continue; }
+    const sx = (v.x * 0.5 + 0.5) * W, sy = (-v.y * 0.5 + 0.5) * H;
+    let vis = 1;
+    // occlusion: march toward the camera through the terrain block
+    for (let k = 1; k <= 22; k++) {
+      const t = k / 22 * 0.7, x = L.x + (cp.x - L.x) * t, y = L.y + (L.card ? 0 : 8) + (cp.y - L.y) * t, z = L.z + (cp.z - L.z) * t;
+      if (x * x + z * z > R3 * R3) { if (L.card) continue; break; }
+      if (terrainY(x, z) > y + 2) { vis = L.card ? 0 : 0.18; break; }
+    }
+    if (!L.card) {
+      const w = L.w, h = 30;
+      const r = [sx - w / 2, sy - h - 16, sx + w / 2, sy - 16];
+      if (!L.main) for (const q of placed) if (r[0] < q[2] && r[2] > q[0] && r[1] < q[3] && r[3] > q[1]) { vis = 0; break; }
+      if (vis > 0.5) placed.push(r);
+    }
+    L.el.style.opacity = vis;
+    L.el.style.transform = `translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px) translate(-50%,${L.card ? '-50%' : '-100%'})`;
+  }
+}
+function updateSunUI() {
+  const h = S3.hour, hh = Math.floor(h), mm = Math.round((h - hh) * 60);
+  $('#v3sunT').textContent = `${hh}:${String(mm).padStart(2, '0')}`;
+}
+let sunT = 0;
+function rebakeSun() {
+  if (!S3.scene) return;
+  const sun = sunVector(S3.hour, S3.winter);
+  const sh = bakeShadow(S3.grid, sun, S3.exag);
+  const u = S3.terr.material.uniforms;
+  u.tShd.value.image.data.set(sh.data); u.tShd.value.needsUpdate = true;
+  u.uSun.value.set(...sun.v); u.uSunUp.value = Math.max(sun.v[1], 0);
+  S3.wall.material.uniforms.uSun.value.set(...sun.v);
+  S3.plinth.material.uniforms.uSun.value.set(...sun.v);
+  S3.needs = true;
+}
+function setExag(e) {
+  S3.exag = e;
+  const T = V3.THREE;
+  build3D(T, S3.peak);
+}
+function setup3DControls() {
+  $('#v3close').onclick = close3D;
+  window.addEventListener('keydown', e => { if (V3.open && e.key === 'Escape') close3D(); });
+  $('#v3rot').onclick = () => { S3.rotate = !S3.rotate; $('#v3rot').setAttribute('aria-pressed', S3.rotate); S3.needs = true; };
+  $('#v3cont').onclick = () => { S3.cont = !S3.cont; $('#v3cont').setAttribute('aria-pressed', S3.cont); if (S3.terr) S3.terr.material.uniforms.uCont.value = S3.cont ? 1 : 0; S3.needs = true; };
+  $('#v3snow').onclick = () => { S3.winter = !S3.winter; $('#v3snow').setAttribute('aria-pressed', S3.winter); if (S3.terr) S3.terr.material.uniforms.uWinter.value = S3.winter ? 1 : 0; rebakeSun(); };
+  $('#v3exag').onclick = () => {
+    const e = S3.exag === 1 ? 1.5 : S3.exag === 1.5 ? 2 : 1;
+    $('#v3exag').lastChild.textContent = `Relieve ×${String(e).replace('.', ',')}`;
+    $('#v3exag').setAttribute('aria-pressed', e !== 1);
+    setExag(e);
+  };
+  $('#v3sun').oninput = e => {
+    S3.hour = +e.target.value; updateSunUI();
+    clearTimeout(sunT); sunT = setTimeout(rebakeSun, 40);
+  };
+  $('#v3top').onclick = () => { stopAutoRotate(); resetOrbit(true); };
+  $('#v3reset').onclick = () => resetOrbit(false);
+}
+setup3DControls();
+
+boot();
+</script>
+</body>
+</html>
