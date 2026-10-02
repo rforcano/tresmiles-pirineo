@@ -64,6 +64,9 @@ button { font: inherit; color: inherit; }
 .brand .eyebrow svg { width: 13px; height: 11px; }
 .brand h1 { margin: 6px 0 2px; font: 700 30px/1 var(--f-display); letter-spacing: .005em; text-wrap: balance; }
 .brand p { margin: 0; color: var(--muted); font-size: 13px; }
+.brand .by { margin-top: 3px; }
+.brand .by a { color: var(--ice); font-weight: 600; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.brand .by a:hover { text-decoration-thickness: 2px; }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; }
 .stat { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px 5px; }
 .stat b { display: block; font: 600 20px/1 var(--f-display); font-variant-numeric: tabular-nums; }
@@ -275,6 +278,7 @@ button { font: inherit; color: inherit; }
       <div class="eyebrow"><svg viewBox="0 0 13 11" aria-hidden="true"><path d="M6.5 0 13 11H0z" fill="currentColor"/></svg>Pirineo aragonés y catalán occidental</div>
       <h1>Los Tresmiles del Pirineo</h1>
       <p>Cimas de más de 3.000 m según la lista UIAA (Buyse)</p>
+      <p class="by">Proyecto creado por <a href="https://ricardoforcano.es/" target="_blank" rel="noopener">Ricardo Forcano</a> con Claude&nbsp;Cowork</p>
       <div class="stats">
         <div class="stat"><b id="stTotal">212</b><span>cimas</span></div>
         <div class="stat"><b id="stPri">127</b><span>principales</span></div>
